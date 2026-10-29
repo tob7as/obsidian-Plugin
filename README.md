@@ -39,13 +39,19 @@ Theme, rain, flying cars, billboards, glitch effects, district grouping (top fol
 API keys you enter are saved in `.obsidian/plugins/neon-vault-city/data.json`. Don't share that file.
 
 ## Privacy and network use
-Out of the box, Neon Vault City works fully offline: it reads your notes locally and sends nothing anywhere. There is no telemetry. Network use only happens when you turn on these optional features yourself:
+Out of the box, Neon Vault City works fully offline and for free: the city, Capri's built-in local brain (chat, finding notes and answering from them) and the Windows voice need no account, no payment and no internet. It reads your notes locally and sends nothing anywhere. There is no telemetry.
 
-| Feature | What it does | Account or key |
-|---|---|---|
-| Claude API (Capri's full AI chat) | Sends your chat messages, and the text of notes Capri reads to answer you, to Anthropic's API at `api.anthropic.com` | Your own Claude API key; usage is billed to it |
-| Fish Audio voice | Sends the text of Capri's replies to `api.fish.audio` to turn it into speech | Your own Fish Audio API key |
-| Kokoro voice | Sends Capri's replies to a voice server running on your own computer (`127.0.0.1`). With auto-start on, the plugin launches that server using the Python and script paths you enter in settings, which are outside your vault | None; Kokoro is installed separately |
+**Payment and accounts:** Capri's full AI conversation is optional and needs a Claude API account from Anthropic, which is paid per use. The Fish Audio voice is optional and needs a Fish Audio account and API key. Nothing else needs an account.
+
+Network use only happens when you turn on these optional features yourself:
+
+| Feature | Why it needs the network | What is sent, and where | Account or key |
+|---|---|---|---|
+| Claude API (Capri's full AI chat) | The AI model runs on Anthropic's servers | Your chat messages, and the text of notes Capri reads to answer you, to `api.anthropic.com` | Your own Claude API key; usage is billed to it |
+| Fish Audio voice | The voice is generated on Fish Audio's servers | The text of Capri's replies, to `api.fish.audio` | Your own Fish Audio API key |
+| Kokoro voice | The voice runs as a separate program on your own computer | Capri's replies, to that program at `127.0.0.1` (never leaves your computer) | None; Kokoro is installed separately |
+
+**Files outside your vault:** only the Kokoro voice uses them. With auto-start on, the plugin launches the Kokoro server using the Python and script paths you enter in settings, because the voice runs as its own program. Nothing outside your vault is read or written otherwise.
 
 Files the plugin writes inside your vault:
 - `City Snapshots/` when you take a photo (P)
