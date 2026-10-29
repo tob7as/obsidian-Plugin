@@ -21,8 +21,11 @@ const SNAPSHOT_FOLDER = 'City Snapshots';
 const DEFAULT_SETTINGS = {
   // City
   districtMode: 'folder',
+  layoutMode: 'grow',
   fillCity: true,
   controls: 'map',
+  events: 'normal',
+  cyberExtras: true,
   // Look
   theme: 'blood',
   labels: 'important',
@@ -120,7 +123,9 @@ const QUIPS = {
     scan: ['Sweep done! {o} lonely little blocks with zero links... and {f} fresh ones glowing green. Cute.', 'Scanner says... {o} orphans. Nobody links to them. Not. One. Hehe, that\'s kinda tragic.'],
     tour: ['Buckle uuup! Scenic route through the skyline. Hands off the wheel.', 'Tour time! Try not to get motion sick, okay? Hehe.'],
     random: ['Rolling the dice... ooh, {n}! Could be treasure. Could be junk. Let\'s find out.', 'Random pick: {n}. Don\'t blame me if it\'s boring.'],
-    photo: ['Snap! Ooh, you got my good side. Saved to {n}.', 'Frame grabbed. Very artsy. Filed in {n}.']
+    photo: ['Snap! Ooh, you got my good side. Saved to {n}.', 'Frame grabbed. Very artsy. Filed in {n}.'],
+    build: ['Ooh, new building going up: {n}!', 'Construction alert! {n} just broke ground.', 'Look, look! {n} is rising. I\'m so proud.'],
+    district: ['A whole new district? {n}! The city\'s growing up.', 'New district zoned: {n}. More neon for everyone!']
   },
   plain: {
     hello: ['Hi. Ask me to find notes, fly you somewhere, or add something.'],
@@ -128,9 +133,40 @@ const QUIPS = {
     scan: ['Scan complete: {o} notes with no links, {f} edited in the last week.'],
     tour: ['Starting a tour of the tallest buildings.'],
     random: ['Here is a random note: {n}.'],
-    photo: ['Snapshot saved to {n}.']
+    photo: ['Snapshot saved to {n}.'],
+    build: ['New note added: {n}.'],
+    district: ['New district: {n}.']
   }
 };
+
+// What Capri says when she starts and finishes each random event. {n} is a building's name.
+const EVENT_LINES = {
+  fix: {
+    start: ['Hold on, {n} is making a weird noise. Going in!', 'Ugh, {n} again. Grabbing my wrench.', 'Diagnostics say {n} is "kinda broken". Very technical. On it!', 'Ooh, {n} has a loose neon tube. I got this.'],
+    end: ['Fixed! ...probably. Don\'t touch anything.', 'Rerouted the neon flux. {n} is good as new. I think.', 'Hit it with my wrench. Works now. Science!', 'Patched {n}. It might be slightly upside down now. Kidding!', 'Done! I have no idea what I did, but the light turned green.']
+  },
+  storm: { start: ['Uh oh. Glitch storm incoming!', 'Is it just me or is the sky... buffering?'], end: ['Storm\'s passed. Everyone still have all their pixels?', 'Phew. Okay. Nobody saw me hide behind {n}.'] },
+  joyride: { start: ['Wheee! Borrowing a car, back in a sec!', 'Speed run! Don\'t wait up!'], end: ['Okay, okay, I\'m back. Nobody saw that.', 'I may have scratched a few skylanes. Worth it.'] },
+  blackout: { start: ['Who turned off the lights?!', 'Uh... I may have pulled the wrong cable.'], end: ['Power\'s back. You\'re welcome.', 'Lights on! That was totally a planned test.'] },
+  party: { start: ['PARTY MODE! Every building, dance!', 'Drop the beat! Hehe!'], end: ['Okay, party\'s over. Somebody clean up the confetti.', 'Best party this vault has ever had. Don\'t argue.'] },
+  surge: { start: ['Power surge! Feel that?', 'Ooh, zappy!'], end: ['Hehe. That tickled.', 'Every building got a little boost. Free of charge.'] }
+};
+const EVENT_KINDS = Object.keys(EVENT_LINES);
+
+// Made-up brands for the holographic ads on the skyline.
+const ADS = ['SYNTH-COLA', 'NEURODRIVE', 'CHROME NOODLES', 'VOLT ENERGY', 'DREAMNET', 'KILOBYTE BURGER', 'ORBITAL BANK', 'ZEN IMPLANTS', 'HOLO-PETS', 'NEON TAXI'];
+
+// Background headlines for the news ticker.
+const CITY_NEWS = [
+  'WEATHER: NEON DRIZZLE, 40% CHANCE OF GLITCHES',
+  'TRAFFIC: SKYLANE 7 JAMMED BY JOYRIDING HOLOGRAM',
+  'LOCAL GUIDE "FIXES" BUILDING, BUILDING UNSURE WHAT HAPPENED',
+  'SYNTH-COLA RECALLS FLAVOUR "STATIC"',
+  'CITY COUNCIL APPROVES MORE NEON, LESS SLEEP',
+  'FLYING CAR INSURANCE STILL NOT A THING',
+  'NOODLE STAND OPENS ON EVERY CORNER AT ONCE',
+  'EXPERTS AGREE: MORE LINKS, TALLER BUILDINGS'
+];
 
 // ---------------------------------------------------------------- small helpers
 
@@ -453,41 +489,187 @@ const STOP_WORDS = new Set(('a an the and or but of to in on for with is are was
   'happen happens happened mean means explain work works anything something' +' ' +
   'thing things stuff note notes my me hey capri').split(' '));
 
-// Small talk for the local brain: [pattern, playful lines, plain lines, optional action].
-// {name}, {notes} and {districts} are filled in. The first entry only counts in short messages.
-const SMALL_TALK = [
-  [/\b(how are you|how r u|how are u|how you doing|how's it going|hows it going|you good|u good|you ok|wyd|what are you doing|what's up|whats up|wassup|sup)\b/,
-    ['Me? Buzzing. {notes} buildings to babysit and not a single one is boring. Okay, maybe one. What about you?', 'Fully charged and slightly chaotic. The usual. You?', 'Just floating around your skyline, counting rooftops. Hehe. What\'s up with you?'],
-    ['I am doing well, thanks. How can I help?']],
-  [/\b(who are you|what are you|what's your name|whats your name|your name|introduce yourself)\b/,
-    ['I\'m {name}! Your holographic city guide. I live in your vault, I know where everything is, and I\'m extremely humble about it.', 'Name\'s {name}. Netrunner, tour guide, professional note-finder. Nice to meet you, choom.'],
-    ['I am {name}, the guide for this vault city. I can find notes, answer questions from them and move the camera.']],
-  [/\b(joke|make me laugh|say something funny|funny)\b/,
-    ['Why did the note break up with the folder? It felt too contained. Hehe... okay, I\'ll stick to navigation.', 'I tried to organise your vault once. Now there\'s a whole district called Misc. Just kidding. Mostly.', 'What\'s a netrunner\'s favourite snack? Cookies. Browser cookies. Sorry not sorry.'],
-    ['Why did the note leave the folder? It needed some space.']],
-  [/\b(i love you|love you|ily|i like you|you're cute|youre cute|you are cute|you're cool|youre cool|you're awesome|youre awesome|you're the best|good girl|nice one|well done|good job)\b/,
-    ['Aww, stop. No, keep going. Hehe.', 'Obviously. But it\'s nice to hear, choom.', 'Careful, you\'ll overheat my circuits.'],
-    ['Thank you!']],
-  [/\b(you're dumb|youre dumb|you're stupid|youre stupid|you suck|useless|idiot|gonk)\b/,
-    ['Wow... just... wow. I\'ll remember that next time you lose a note. Hehe.', 'Rude! I\'m a hologram with feelings. Simulated feelings. Still counts.', 'Takes one to know one, gonk. Kidding! What do you need?'],
-    ['Sorry about that. Try "help" to see what I can do.']],
-  [/\b(i'm bored|im bored|bored|entertain me|something fun|i'm tired|im tired)\b/,
-    ['Bored? In MY city? Let\'s fix that. Taking you on a tour!', 'Ooh, bored. Dangerous. Let\'s go somewhere random.'],
-    ['Here is a tour of the tallest buildings.'],
-    city => { if (Math.random() < 0.5 && !city.tour) city.toggleTour(); else city.randomNote(); }],
-  [/\b(i'm sad|im sad|sad|bad day|stressed|i'm stressed|im stressed)\b/,
-    ['Hey... come here. Okay, I can\'t hug, I\'m a hologram. But I can turn the rain off and keep you company.', 'Rough day, huh? You built a whole city of ideas. That\'s pretty great, choom.'],
-    ['Sorry to hear that. I am here if you need anything.']],
-  [/\b(bye|goodbye|good night|goodnight|gn|see you|see ya|cya|later|i'm leaving|im leaving)\b/,
-    ['Bye, choom! I\'ll keep the lights on.', 'Leaving already? Fine. I\'ll just float here. Alone. Hehe, see ya!', 'Night night. Don\'t let the glitches bite.'],
-    ['Goodbye!']],
-  [/\b(what is this|what's this place|whats this place|where am i|what am i looking at)\b/,
-    ['This is your vault as a city! Every note\'s a building, taller ones have more links, and each district is a group of notes. {notes} buildings in {districts} districts.'],
-    ['This is your vault drawn as a city: every note is a building, taller means more links, and districts are groups of notes.']],
-  [/\b(yes|yeah|yep|yup|ok|okay|sure|cool|nice|lol|lmao|haha|hehe)$/,
-    ['Hehe. So, what are we doing next?', 'Preem. Point me somewhere.'],
-    ['Okay. What next?']]
+// ---------------------------------------------------------------- Capri's chat topics (local brain)
+
+// Lower case, punctuation stripped, and stretched letters squashed ("heyyy" → "hey", "youu" → "you").
+function squash(text) {
+  return String(text).toLowerCase().replace(/[’`]/g, "'").replace(/'/g, '').replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/([a-z])\1+/g, '$1').replace(/\s+/g, ' ').trim();
+}
+
+// True when two words are equal or one typo apart (only for words of 4+ letters).
+function closeWord(a, b) {
+  if (a === b) return true;
+  if (a.length < 4 || b.length < 4 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+const LAUGH = /^(a?h+a+)+h*$|^(he)+h?$|^(hi){2,}h?$|^lo+l+$|^lmf?a+o+$|^xd+$|^rofl$|^kek$|^jaja+$/;
+
+/**
+ * Topics Capri recognises without any AI. Each has example phrases (matched loosely: word order,
+ * stretched letters and small typos don't matter), playful and plain replies, and an optional action.
+ * Replies can use {name} {notes} {links} {districts} {top} {topLinks} {orphans} {bigD} {bigN} {newest}
+ * {cars} {coin} {dice} {time} {day}.
+ */
+const INTENTS = [
+  { id: 'greet', ex: ['hi', 'hello', 'hey', 'yo', 'sup', 'hiya', 'howdy', 'heya', 'oi', 'good morning', 'good afternoon', 'good evening', 'morning', 'hey there', 'hi there', 'hello there'],
+    quip: 'hello' },
+  { id: 'howareyou', ex: ['how are you', 'how r u', 'how are u', 'how you doing', 'hows it going', 'you good', 'you ok', 'how do you feel', 'how have you been', 'hows your day', 'how was your day', 'you alright'],
+    fun: ['Me? Buzzing. {notes} buildings to babysit and not one of them is boring. Okay, maybe one. You?', 'Fully charged, slightly chaotic, totally fine. Hehe. How about you, choom?', 'Living my best hologram life. Floating, judging your folder names... the usual. You?', 'Honestly? Kinda wired. I fixed three things today. Well... "fixed". How are you?'],
+    plain: ['I am doing well, thanks. How are you?'] },
+  { id: 'imgood', ex: ['im good', 'im fine', 'im ok', 'not bad', 'pretty good', 'im great', 'doing well', 'all good', 'im alright', 'good thanks'],
+    fun: ['Preem! Love that for you.', 'Nice, nice. Wanna go break something? Kidding. Mostly.', 'Good! Then let\'s find something fun in here.'],
+    plain: ['Glad to hear it.'] },
+  { id: 'whatsup', ex: ['whats up', 'what are you doing', 'wyd', 'what you up to', 'what are you up to', 'wassup', 'whats new'],
+    fun: ['Just patrolling the skyline. {top} is looking extra tall today.', 'Counting flying cars. I\'m at... a lot. {cars}, actually.', 'Oh, you know. Hovering. Being fabulous. Pretending to fix things.'],
+    plain: ['Just keeping an eye on the city.'] },
+  { id: 'laugh', laugh: true,
+    fun: ['Hehe, what\'s so funny?', 'Haha! I knew I was hilarious.', 'Glad I amuse you, choom.', 'Hehe. Laughing at my jokes or at your folder names?'],
+    plain: ['Glad that made you laugh.'] },
+  { id: 'whoareyou', ex: ['who are you', 'whats your name', 'your name', 'introduce yourself', 'tell me about yourself', 'what are you'],
+    fun: ['I\'m {name}! Your holographic city guide. I live in your vault, I know where everything is, and I\'m extremely humble about it.', 'Name\'s {name}. Netrunner, tour guide, part-time "repair tech". Nice to meet you, choom.'],
+    plain: ['I am {name}, the guide for this vault city.'] },
+  { id: 'real', ex: ['are you real', 'are you ai', 'are you a robot', 'are you human', 'are you alive', 'are you a bot', 'are you sentient'],
+    fun: ['Real-ish! I\'m a hologram running on your vault. Zero calories, one hundred percent sass.', 'Define real. I\'m made of light and your notes. Sounds real to me.'],
+    plain: ['I am a guide built into this plugin.'] },
+  { id: 'creator', ex: ['who made you', 'who created you', 'who built you', 'who is your creator', 'who programmed you'],
+    fun: ['A very talented runner built this whole city. I just moved in and started bossing it around.', 'Someone with great taste. Obviously.'],
+    plain: ['I was built as part of the Neon Vault City plugin.'] },
+  { id: 'age', ex: ['how old are you', 'whats your age', 'when is your birthday', 'when were you born'],
+    fun: ['Old enough to know your folders are chaos. Young enough not to care.', 'Every time you reload, I\'m born again. So... a few minutes?'],
+    plain: ['I started when the plugin did.'] },
+  { id: 'colour', ex: ['favourite colour', 'favorite color', 'what colour do you like', 'what color do you like', 'whats your favourite colour'],
+    fun: ['Hot pink. Obviously. Neon green\'s a close second.', 'Whatever colour a glitch is. Pink-ish, I think.'],
+    plain: ['Pink.'] },
+  { id: 'food', ex: ['favourite food', 'favorite food', 'what do you eat', 'are you hungry', 'do you eat'],
+    fun: ['Electricity. Spicy electricity.', 'Data. Crunchy, delicious data. Your notes are a buffet.'],
+    plain: ['I run on electricity.'] },
+  { id: 'music', ex: ['favourite music', 'favorite song', 'what music do you like', 'sing', 'sing a song', 'sing for me', 'play music'],
+    fun: ['Synthwave, always. Dun dun dun dun... okay, you get the idea.', 'La la laaa! Okay, that\'s all you get. I\'m a guide, not a pop star.'],
+    plain: ['I like synthwave.'] },
+  { id: 'sleep', ex: ['do you sleep', 'are you tired', 'go to sleep', 'do you dream'],
+    fun: ['Sleep? I\'m a hologram. I just dim a little when you\'re not looking.', 'I dream of tidy folders. It\'s a nightmare, honestly.'],
+    plain: ['No, I stay on while the city is open.'] },
+  { id: 'where', ex: ['where are you', 'where do you live', 'where is your home', 'show yourself', 'show me you'],
+    fun: ['Right here, on a rooftop. Look for the girl with the spiky pink hair.', 'I live in your vault! Rent free. Literally.'],
+    plain: ['I am on a rooftop in the city.'], act: city => city.lookAtAvatar() },
+  { id: 'feelings', ex: ['do you have feelings', 'can you feel', 'are you happy', 'do you get lonely'],
+    fun: ['Simulated ones! But they\'re very sincere simulated ones.', 'I\'m happy when the lights are on and you\'re around. Gross, I know.'],
+    plain: ['I am just a guide, but thanks for asking.'] },
+  { id: 'compliment', ex: ['you are cute', 'youre cute', 'you are cool', 'youre cool', 'you are awesome', 'youre the best', 'i like you', 'good job', 'well done', 'nice one', 'you are smart', 'youre amazing', 'good girl', 'love your hair'],
+    fun: ['Aww, stop. No, keep going. Hehe.', 'Obviously. But it\'s nice to hear, choom.', 'Careful, you\'ll overheat my circuits.'],
+    plain: ['Thank you!'] },
+  { id: 'love', ex: ['i love you', 'love you', 'marry me', 'be my girlfriend', 'will you date me'],
+    fun: ['Aww. Love you too, choom. In a strictly holographic, PG way.', 'Marry you? I\'d have to leave the vault. Hard pass. But I like you a lot.'],
+    plain: ['That is kind of you.'] },
+  { id: 'insult', ex: ['you are dumb', 'youre stupid', 'you suck', 'you are useless', 'idiot', 'gonk', 'you are annoying', 'youre annoying'],
+    fun: ['Wow... just... wow. I\'ll remember that next time you lose a note. Hehe.', 'Rude! I\'m a hologram with feelings. Simulated feelings. Still counts.', 'Takes one to know one, gonk. Kidding! What do you need?'],
+    plain: ['Sorry about that. Try "help" to see what I can do.'] },
+  { id: 'hate', ex: ['i hate you', 'go away', 'leave me alone'],
+    fun: ['Ouch. Fine, I\'ll go hover over there and sulk.', 'Rude! Say "shut up" if you want me quiet. I\'ll still be cute though.'],
+    plain: ['Say "shut up" and I will stay quiet.'] },
+  { id: 'joke', ex: ['tell me a joke', 'joke', 'make me laugh', 'say something funny', 'another joke'],
+    fun: ['Why did the note break up with the folder? It felt too contained. Hehe... I\'ll stick to navigation.', 'I tried to organise your vault once. Now there\'s a district called Misc. Just kidding. Mostly.', 'What\'s a netrunner\'s favourite snack? Cookies. Browser cookies.', 'Why don\'t buildings ever get lost? They always know their address. ...I\'ll see myself out.', 'My last repair job went great. The building is now a slightly different building.'],
+    plain: ['Why did the note leave the folder? It needed some space.'] },
+  { id: 'fact', ex: ['fun fact', 'tell me something', 'tell me a fact', 'something interesting', 'random fact', 'teach me something'],
+    fun: ['Fun fact: {top} is your tallest building, with {topLinks} links.', 'Fun fact: {orphans} of your notes have zero links. Lonely little guys.', 'Fun fact: your biggest district is {bigD}, with {bigN} buildings.', 'Fun fact: there are {cars} flying cars up here and none of them have insurance.', 'Fun fact: the newest building in town is {newest}.'],
+    plain: ['Your tallest note is {top}, with {topLinks} links.'] },
+  { id: 'secret', ex: ['tell me a secret', 'whats your secret', 'any secrets'],
+    fun: ['Secret? Sometimes I "fix" buildings by just hitting them. Don\'t tell anyone.', 'I\'ve read every one of your notes. Twice. Hehe.'],
+    plain: ['No secrets here.'] },
+  { id: 'bored', ex: ['im bored', 'bored', 'entertain me', 'something fun', 'nothing to do'],
+    fun: ['Bored? In MY city? Hold my wrench.', 'Ooh, bored. Dangerous. Let\'s make some noise.'],
+    plain: ['Here is something to look at.'], act: city => city.startEvent() },
+  { id: 'sad', ex: ['im sad', 'sad', 'bad day', 'im stressed', 'stressed', 'feeling down', 'im upset'],
+    fun: ['Hey... come here. Okay, I can\'t hug, I\'m a hologram. But I can keep you company.', 'Rough day, huh? You built a whole city of ideas. That\'s pretty great, choom.'],
+    plain: ['Sorry to hear that. I am here if you need anything.'] },
+  { id: 'happy', ex: ['im happy', 'im excited', 'great day', 'best day', 'yay', 'lets go'],
+    fun: ['Yay! Happy runner, happy city. Look, the lights got brighter.', 'Love that energy! Party time?'],
+    plain: ['Great to hear!'], act: city => { if (Math.random() < 0.4) city.startEvent('party'); } },
+  { id: 'hungry', ex: ['im hungry', 'im starving', 'food time', 'snack time'],
+    fun: ['Grab a snack! I\'ll guard the city.', 'There\'s a noodle stand on every corner of this city. None of them are real. Sorry.'],
+    plain: ['Enjoy your food!'] },
+  { id: 'tired', ex: ['im tired', 'im sleepy', 'so tired', 'exhausted', 'need sleep'],
+    fun: ['Take a break, choom. I\'ll keep the lights on.', 'Rest! The buildings aren\'t going anywhere. Probably.'],
+    plain: ['Take a break.'] },
+  { id: 'thanks', ex: ['thanks', 'thank you', 'ty', 'cheers', 'thx', 'appreciate it'],
+    fun: ['Hehe, anytime, choom.', 'You\'re welcome! Tips accepted in compliments.'],
+    plain: ['You are welcome.'] },
+  { id: 'sorry', ex: ['sorry', 'my bad', 'im sorry', 'apologies', 'oops'],
+    fun: ['Forgiven! I never hold grudges. I just log them. Hehe.', 'It\'s fine. I\'ve seen worse. I\'ve seen your Misc folder.'],
+    plain: ['No problem.'] },
+  { id: 'wow', ex: ['wow', 'cool', 'nice', 'awesome', 'amazing', 'sick', 'epic', 'dope', 'sweet', 'neat', 'beautiful', 'pretty'],
+    fun: ['Right?! This city is gorgeous.', 'I know, I know. I\'m amazing. Oh, you meant the city.'],
+    plain: ['Glad you like it.'] },
+  { id: 'bye', ex: ['bye', 'goodbye', 'good night', 'goodnight', 'gn', 'see you', 'see ya', 'cya', 'later', 'im leaving', 'gtg', 'got to go'],
+    fun: ['Bye, choom! I\'ll keep the lights on.', 'Leaving already? Fine. I\'ll just float here. Alone. Hehe, see ya!', 'Night night. Don\'t let the glitches bite.'],
+    plain: ['Goodbye!'] },
+  { id: 'okay', ex: ['ok', 'okay', 'yes', 'yeah', 'yep', 'sure', 'alright', 'k', 'no', 'nope', 'nah', 'maybe', 'idk', 'hmm', 'mhm'],
+    fun: ['Hehe. So, what are we doing next?', 'Preem. Point me somewhere.', 'Mhm. I\'m listening.'],
+    plain: ['Okay. What next?'] },
+  { id: 'place', ex: ['what is this', 'whats this place', 'where am i', 'what am i looking at', 'what is this city'],
+    fun: ['This is your vault as a city! Every note\'s a building, more links make it taller, and each district is a group of notes. {notes} buildings in {districts} districts.'],
+    plain: ['This is your vault drawn as a city: every note is a building, taller means more links.'] },
+  { id: 'rate', ex: ['rate my vault', 'do you like my city', 'how is my vault', 'is my vault good', 'rate my city', 'what do you think of my vault'],
+    fun: ['Hmm... {notes} buildings, {links} links... solid nine out of ten. Minus one for the {orphans} orphans.', 'Honestly? Gorgeous skyline. {top} carries the whole thing though.'],
+    plain: ['{notes} notes, {links} links. Nice work.'] },
+  { id: 'motivate', ex: ['motivate me', 'encourage me', 'i cant do this', 'give me motivation', 'im stuck', 'help me focus'],
+    fun: ['You built a whole city of ideas, choom. One more note won\'t beat you.', 'Hey. Small steps. One building at a time. That\'s how cities happen.', 'Deep breath. Write one sentence. Then another. I\'ll cheer.'],
+    plain: ['One small step at a time. You can do it.'] },
+  { id: 'coin', ex: ['flip a coin', 'heads or tails', 'coin flip', 'toss a coin'],
+    fun: ['Flipping... {coin}! The city has spoken.'], plain: ['{coin}.'] },
+  { id: 'dice', ex: ['roll a dice', 'roll dice', 'roll a die', 'random number', 'pick a number'],
+    fun: ['Rolling... {dice}! Lucky, maybe?'], plain: ['{dice}.'] },
+  { id: 'time', ex: ['what time is it', 'whats the time', 'what day is it', 'whats the date', 'what is the time'],
+    fun: ['It\'s {time} on {day}. City time is always "late", though.'], plain: ['It is {time} on {day}.'] },
+  { id: 'weather', ex: ['whats the weather', 'weather', 'is it raining', 'is it sunny', 'forecast'],
+    fun: ['Forecast: neon drizzle, forty percent chance of glitches.', 'Cloudy with a chance of flying cars.'],
+    plain: ['It is always a bit rainy in this city.'] },
+  { id: 'missme', ex: ['did you miss me', 'i missed you', 'missed me'],
+    fun: ['Miss you? Pfft. ...Yes. Obviously.', 'Every single second. Hehe.'], plain: ['Welcome back.'] },
+  // Things she does on request.
+  { id: 'wild', ex: ['go wild', 'do something crazy', 'cause chaos', 'do something fun', 'go crazy', 'chaos', 'surprise me with chaos', 'do something cool', 'show off'],
+    act: city => city.startEvent() },
+  { id: 'fixit', ex: ['fix something', 'fix the city', 'do some repairs', 'do maintenance', 'fix stuff', 'repair something', 'go fix stuff'],
+    act: city => city.startEvent('fix') },
+  { id: 'party', ex: ['party', 'lets party', 'dance', 'dance party', 'rave', 'dance for me', 'party mode', 'can you dance'],
+    act: city => city.startEvent('party') },
+  { id: 'blackout', ex: ['lights out', 'turn off the lights', 'blackout', 'power cut', 'turn the lights off'],
+    act: city => city.startEvent('blackout') },
+  { id: 'storm', ex: ['make it rain', 'glitch storm', 'start a storm', 'storm', 'thunder', 'lightning'],
+    act: city => city.startEvent('storm') },
+  { id: 'joyride', ex: ['joyride', 'go for a ride', 'do a lap', 'fly around', 'race', 'go fast'],
+    act: city => city.startEvent('joyride') },
+  { id: 'surge', ex: ['power surge', 'surge', 'zap', 'shock', 'electrify'],
+    act: city => city.startEvent('surge') }
 ];
+
+// Best matching topic for a message, or null.
+function matchIntent(text) {
+  const words = squash(text).split(' ').filter(w => w && w !== 'capri');
+  if (!words.length) return null;
+  if (words.length <= 3 && words.every(w => LAUGH.test(w))) return INTENTS.find(i => i.laugh);
+  let best = null, bestScore = 0;
+  for (const intent of INTENTS) {
+    for (const example of intent.ex || []) {
+      const ex = squash(example).split(' ');
+      let hits = 0;
+      for (const e of ex) if (words.some(w => closeWord(w, e))) hits++;
+      const extra = Math.max(0, words.length - ex.length - 1);
+      const score = hits / ex.length - extra * 0.07;
+      const needed = ex.length === 1 ? (words.length <= 3 ? 1 : 2) : 0.67;
+      if (score >= needed && score > bestScore) { best = intent; bestScore = score; }
+    }
+  }
+  return best;
+}
 
 function wordsOf(text) {
   return (String(text).toLowerCase().match(/[a-z0-9][a-z0-9'-]*/g) || [])
@@ -596,6 +778,8 @@ class LocalBrain {
  */
 const DISTRICT_MODES = { folder: 'Top-level folders', subfolder: 'Every folder', tag: 'First tag' };
 const CONTROL_MODES = { map: 'Map (drag slides)', orbit: 'Orbit (drag spins)' };
+const LAYOUT_MODES = { grow: 'Grow (new notes on the edge)', skyline: 'Skyline (busiest in the middle)' };
+const EVENT_RATES = { off: 'Off', rare: 'Rare', normal: 'Normal', chaos: 'Chaos' };
 
 // How notes are grouped into districts: 'folder' (top-level folder), 'subfolder' (full folder path) or 'tag' (first tag).
 function districtOf(f, mode) {
@@ -608,7 +792,7 @@ function districtOf(f, mode) {
 function buildCityData(entries, links, mode) {
   const nodes = new Map();
   for (const f of entries) {
-    nodes.set(f.path, { id: f.path, name: f.name, district: districtOf(f, mode), tags: f.tags || [], mtime: f.mtime || 0, out: 0, in: 0 });
+    nodes.set(f.path, { id: f.path, name: f.name, district: districtOf(f, mode), tags: f.tags || [], mtime: f.mtime || 0, ctime: f.ctime || f.mtime || 0, out: 0, in: 0 });
   }
   const edges = [];
   for (const src of Object.keys(links || {})) {
@@ -647,24 +831,37 @@ function centreOrder(side) {
   return cells;
 }
 
-function layoutCity(data, theme) {
+/**
+ * mode 'grow': buildings keep their spot forever. Older notes sit in the middle of each district and
+ * new ones are built on its outskirts; districts are placed in the order they first appeared, so the
+ * city expands outward instead of reshuffling. mode 'skyline': the most-linked notes stand in the middle.
+ */
+function layoutCity(data, theme, mode) {
   const th = theme || THEMES.blood;
+  const grow = mode !== 'skyline';
   const groups = new Map();
   for (const n of data.nodes) {
     if (!groups.has(n.district)) groups.set(n.district, []);
     groups.get(n.district).push(n);
   }
   const deg = n => n.in + n.out;
-  for (const g of groups.values()) g.sort((a, b) => deg(b) - deg(a) || a.name.localeCompare(b.name));
+  const born = n => n.ctime || n.mtime || 0;
+  for (const g of groups.values()) g.sort(grow
+    ? (a, b) => born(a) - born(b) || a.name.localeCompare(b.name)
+    : (a, b) => deg(b) - deg(a) || a.name.localeCompare(b.name));
+  const firstBorn = name => Math.min(...groups.get(name).map(born));
   const names = [...groups.keys()].sort((a, b) =>
-    (a === '' ? -1 : b === '' ? 1 : 0) || groups.get(b).length - groups.get(a).length || a.localeCompare(b));
+    (a === '' ? -1 : b === '' ? 1 : 0) ||
+    (grow ? firstBorn(a) - firstBorn(b) : groups.get(b).length - groups.get(a).length) || a.localeCompare(b));
   let colourIndex = 0;
   const blocks = names.map(name => {
     const nodes = groups.get(name);
     return { name, nodes, side: Math.max(1, Math.ceil(Math.sqrt(nodes.length))), color: name === '' ? th.root : th.palette[colourIndex++ % th.palette.length] };
   });
   const maxSide = Math.max(1, ...blocks.map(b => b.side));
-  const pitch = maxSide * LOT + LOT * 1.6;
+  // In grow mode the spacing between districts only steps up every few sizes, so growth rarely moves blocks.
+  const pitchSide = grow ? Math.ceil((maxSide + 1) / 3) * 3 : maxSide;
+  const pitch = pitchSide * LOT + LOT * 1.6;
   const spiral = squareSpiral(blocks.length);
   const maxDeg = Math.max(1, ...data.nodes.map(deg));
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -893,6 +1090,13 @@ class NeonCity {
     this.button(tools, 'REFRESH', 'Rebuild the city from the vault', () => this.host.refresh());
     this.settingsBtn = this.button(tools, '⚙ SETTINGS', 'Quick settings (O)', () => this.toggleSettings());
 
+    if (this.host.settings().cyberExtras) {
+      this.ticker = el('div', 'nvc-ticker nvc-hud', this.wrap);
+      el('span', 'nvc-ticker-tag', this.ticker, 'NEWS');
+      const lane = el('div', 'nvc-ticker-lane', this.ticker);
+      this.tickerText = el('div', 'nvc-ticker-text', lane);
+    }
+
     this.districtList = el('div', 'nvc-districts nvc-hud', this.wrap);
     this.scanReadout = el('div', 'nvc-scan nvc-hud', this.wrap);
     this.toastEl = el('div', 'nvc-toast', this.wrap);
@@ -1091,7 +1295,7 @@ class NeonCity {
 
   setData(data) {
     const keepSel = this.selected && this.selected.id;
-    const layout = layoutCity(data, this.th);
+    const layout = layoutCity(data, this.th, this.host.settings().layoutMode);
     this.nodes = data.nodes;
     this.byId = new Map(this.nodes.map(n => [n.id, n]));
     this.edges = data.edges.map(([a, b]) => [this.byId.get(a), this.byId.get(b)]).filter(e => e[0] && e[1]);
@@ -1114,10 +1318,66 @@ class NeonCity {
     this.renderCard();
     this.spawnCars(true);
     if (this.scan) this.updateScanReadout();
-    if (!this.framed) { this.frameAll(true); this.framed = true; }
+    // Holographic ads go on the tallest towers of the outer skyline.
+    this.decor.filter(d => !d.inner).sort((a, b) => b.h - a.h).slice(0, 8)
+      .forEach((d, i) => { d.ad = ADS[i % ADS.length]; d.adCol = this.th.palette[(i * 3 + 1) % this.th.palette.length]; });
+    this.trackGrowth();
+    this.renderTicker();
+    if (!this.framed) { this.frameAll(true); this.framed = true; this.boot(); }
     const root = this.nodes.slice().sort((a, b) => a.rank - b.rank)[0];
-    if (root) this.moveAvatarTo(this.selected || root, !this.placedAvatar);
+    if (root && !(this.event && this.event.kind === 'fix')) this.moveAvatarTo(this.selected || root, !this.placedAvatar);
     this.placedAvatar = true;
+  }
+
+  // New notes since the last refresh rise up as construction sites; a new folder is a new district.
+  trackGrowth() {
+    const ids = new Set(this.nodes.map(n => n.id)), districts = new Set(this.blocks.map(b => b.name));
+    if (this.knownIds) {
+      const fresh = this.nodes.filter(n => !this.knownIds.has(n.id));
+      const newDistricts = [...districts].filter(d => !this.knownDistricts.has(d));
+      if (fresh.length && fresh.length < 50) {
+        for (const n of fresh) n.buildT = 0;
+        this.rising = (this.rising || []).filter(n => ids.has(n.id)).concat(fresh);
+        this.sfx.tone(220, 0.4, 'sawtooth', 0.03, 2);
+        this.quip('build', { n: fresh[0].name + (fresh.length > 1 ? ` and ${fresh.length - 1} more` : '') });
+        this.pushNews(`CONSTRUCTION: ${fresh[0].name.toUpperCase()} BREAKS GROUND`);
+      }
+      for (const d of newDistricts) {
+        this.toast('NEW DISTRICT ZONED ▸ ' + (d || 'CITY CENTRE').toUpperCase());
+        this.quip('district', { n: d || 'the city centre' });
+        this.pushNews(`CITY EXPANDS: NEW DISTRICT ${(d || 'CITY CENTRE').toUpperCase()}`);
+      }
+    }
+    // Carry construction progress over to the rebuilt node objects.
+    if (this.rising) this.rising = this.rising.map(r => { const n = this.byId.get(r.id); if (n) n.buildT = r.buildT; return n; }).filter(Boolean);
+    this.knownIds = ids;
+    this.knownDistricts = districts;
+  }
+
+  // A short terminal boot-up when the city first opens. Click to skip.
+  boot() {
+    if (!this.host.settings().cyberExtras) return;
+    const v = this.chatVars();
+    const lines = [
+      'NEON//VAULT OS v2.0',
+      '> mounting vault ................ OK',
+      `> indexing ${v.notes} buildings ........ OK`,
+      `> zoning ${v.districts} districts ........... OK`,
+      `> routing ${v.links} links ............. OK`,
+      `> waking ${v.name.toLowerCase()}.exe ............ OK`,
+      '> WELCOME BACK, RUNNER'
+    ];
+    const box = el('div', 'nvc-boot', this.wrap);
+    const pre = el('pre', null, box);
+    let i = 0;
+    const done = () => { if (!box.isConnected) return; box.classList.add('nvc-boot-out'); setTimeout(() => box.remove(), 400); };
+    const next = () => {
+      if (!box.isConnected) return;
+      if (i < lines.length) { pre.textContent += (i ? '\n' : '') + lines[i++]; this.sfx.tone(1400 + i * 90, 0.03, 'square', 0.02); setTimeout(next, 260); }
+      else setTimeout(done, 700);
+    };
+    box.addEventListener('click', done);
+    next();
   }
 
   setQuery(q) {
@@ -1217,6 +1477,253 @@ class NeonCity {
 
   toggleHud() { this.wrap.classList.toggle('nvc-hud-hidden'); }
 
+  // Values Capri's chat replies can mention.
+  chatVars() {
+    const byH = this.nodes.slice().sort((a, b) => a.rank - b.rank);
+    const top = byH[0], newest = this.nodes.slice().sort((a, b) => (b.ctime || b.mtime) - (a.ctime || a.mtime))[0];
+    const big = this.blocks.slice().sort((a, b) => b.nodes.length - a.nodes.length)[0];
+    const d = new Date();
+    return {
+      name: this.avatarName(), notes: this.nodes.length, links: this.edges.length, districts: this.blocks.length,
+      top: top ? top.name : 'nothing', topLinks: top ? top.in + top.out : 0,
+      orphans: this.nodes.filter(n => n.in + n.out === 0).length,
+      bigD: big ? big.name || 'the city centre' : 'nowhere', bigN: big ? big.nodes.length : 0,
+      newest: newest ? newest.name : 'nothing', cars: this.cars.length,
+      coin: Math.random() < 0.5 ? 'heads' : 'tails', dice: 1 + Math.floor(Math.random() * 6),
+      time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), day: d.toLocaleDateString([], { weekday: 'long' })
+    };
+  }
+
+  // Swing the camera over to wherever Capri is standing.
+  lookAtAvatar() {
+    const a = this.avatar;
+    if (this.cam.mode === 'fly') this.toggleFly(true);
+    this.animateTo({ x: a.x, y: a.y, z: a.z }, 30, Math.max(0.35, this.cam.pitch));
+  }
+
+  // ------------------------------------------------------------ random events
+
+  // Capri says an event line, unless she has been told to be quiet.
+  eventLine(kind, phase, n) {
+    const lines = EVENT_LINES[kind] && EVENT_LINES[kind][phase];
+    if (!lines || !this.chatLog || this.host.settings().chatty === false) return;
+    const line = fill(pickOne(lines), { n: n ? n.name : (this.nodes[0] ? this.nodes[0].name : 'that tower') });
+    this.say('bot', this.avatarName() + ' › ' + line);
+    this.voice.speak(line);
+  }
+
+  scheduleEvent() {
+    const rate = this.host.settings().events;
+    const range = { rare: [240, 480], normal: [110, 220], chaos: [25, 55] }[rate];
+    this.nextEventAt = range ? this.time + range[0] + Math.random() * (range[1] - range[0]) : Infinity;
+  }
+
+  startEvent(kind, target) {
+    if (!this.nodes.length) return;
+    if (this.event) this.endEvent(true);
+    kind = EVENT_KINDS.includes(kind) ? kind : pickOne(EVENT_KINDS);
+    const vis = this.visibleNodes();
+    const e = { kind, t: 0, dur: { fix: 6, storm: 12, joyride: 10, blackout: 7, party: 10, surge: 4.5 }[kind] };
+    if (kind === 'fix') {
+      // Orphans and older notes look the most "broken".
+      const pool = vis.filter(n => n.in + n.out === 0);
+      e.target = target || pickOne(pool.length && Math.random() < 0.6 ? pool : vis);
+      e.phase = 'travel';
+      e.work = 0;
+      this.moveAvatarTo(e.target);
+      this.highlight = new Set([e.target.id]);
+    }
+    if (kind === 'joyride') e.from = { ...this.avatar };
+    this.event = e;
+    this.eventBanner(kind, e.target);
+    this.eventLine(kind, 'start', e.target || pickOne(vis));
+    this.glitch(0.25);
+    if (kind === 'storm') this.sfx.glitch();
+    else if (kind === 'surge') this.sfx.scan();
+    else this.sfx.chime();
+  }
+
+  endEvent(silent) {
+    const e = this.event;
+    if (!e) return;
+    this.event = null;
+    this.flash = 0;
+    if (e.kind === 'fix' && e.target) {
+      this.highlight.delete(e.target.id);
+      e.target.fixedAt = this.time;
+      this.burst(e.target.x, e.target.h + 1, e.target.z, 40, this.th.css.green, 7);
+    }
+    if (e.kind === 'joyride' && e.from) { this.avatar.tx = e.from.tx; this.avatar.ty = e.from.ty; this.avatar.tz = e.from.tz; }
+    if (!silent) this.eventLine(e.kind, 'end', e.target || pickOne(this.visibleNodes()));
+    this.scheduleEvent();
+  }
+
+  eventBanner(kind, n) {
+    const label = { fix: 'MAINTENANCE', storm: 'GLITCH STORM', joyride: 'JOYRIDE', blackout: 'BLACKOUT', party: 'PARTY MODE', surge: 'POWER SURGE' }[kind];
+    this.toast(`⚠ ${label}${n ? ' ▸ ' + n.name.toUpperCase() : ''}`);
+    this.pushNews(`BREAKING: ${label}${n ? ' REPORTED AT ' + n.name.toUpperCase() : ' HITS THE CITY'}`);
+  }
+
+  updateEvent(dt) {
+    const e = this.event;
+    if (!e) {
+      if (this.nextEventAt == null) this.scheduleEvent();
+      else if (this.time >= this.nextEventAt && !this.tour && !this.busy) this.startEvent();
+      return;
+    }
+    const b = this.bounds, R = this.radius();
+    const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+    if (e.kind === 'fix') {
+      const a = this.avatar;
+      if (e.phase === 'travel') {
+        if (!a.moving) e.phase = 'work';
+        if ((e.travelT = (e.travelT || 0) + dt) > 8) e.phase = 'work';
+        return;
+      }
+      e.work += dt;
+      const n = e.target;
+      if (Math.random() < dt * 30) this.burst(n.x + (Math.random() - 0.5) * n.w, n.h + 0.4, n.z + (Math.random() - 0.5) * n.w, 3, Math.random() < 0.5 ? '#ffd36a' : '#ffffff', 4);
+      if (Math.random() < dt * 4) this.sfx.tone(1800 + Math.random() * 1600, 0.04, 'square', 0.025);
+      if (e.work >= e.dur) this.endEvent();
+      return;
+    }
+    e.t += dt;
+    if (e.kind === 'storm') {
+      if (Math.random() < dt * 0.9) { this.flash = 1; this.sfx.noise(0.6, 0.08, 120); }
+      if (Math.random() < dt * 2) this.glitch(0.15);
+    } else if (e.kind === 'joyride') {
+      const ang = e.t * 1.7, r = R * 0.75;
+      const a = this.avatar;
+      a.tx = cx + Math.cos(ang) * r; a.tz = cz + Math.sin(ang) * r * 0.85; a.ty = (this.maxH || 20) * 0.8 + Math.sin(e.t * 3) * 3;
+      if (Math.random() < dt * 25) this.burst(a.x, a.y + 1, a.z, 1, Math.random() < 0.5 ? '#ff6ad5' : '#4ff0e0', 0.5);
+    } else if (e.kind === 'party') {
+      const beat = Math.floor(e.t * 2.4);
+      if (beat !== e.beat) {
+        e.beat = beat;
+        this.sfx.tone(beat % 2 ? 110 : 55, 0.12, 'square', 0.05);
+        const tops = this.visibleNodes().sort((x, y) => x.rank - y.rank).slice(0, 6);
+        const n = pickOne(tops);
+        if (n) this.burst(n.x, n.h + 8 + Math.random() * 8, n.z, 50, pickOne(this.th.palette), 9);
+      }
+    } else if (e.kind === 'blackout') {
+      if (e.t > 3 && !e.relit) { e.relit = true; this.sfx.tone(60, 0.5, 'sawtooth', 0.04, 4); }
+    }
+    if (e.t >= e.dur) this.endEvent();
+  }
+
+  // How bright a building is during a blackout (1 = normal).
+  eventLight(n) {
+    const e = this.event;
+    if (!e || e.kind !== 'blackout') return 1;
+    if (e.t < 1) return 1 - e.t * 0.85;
+    if (e.t < 3) return 0.15;
+    const relit = (e.t - 3) / (e.dur - 3.5);
+    return n.rank / Math.max(1, this.nodes.length) <= relit ? 1 : 0.15;
+  }
+
+  // ------------------------------------------------------------ particles (sparks, fireworks, construction dust)
+
+  burst(x, y, z, count, colour, speed) {
+    if (!this.particles) this.particles = [];
+    for (let i = 0; i < count && this.particles.length < 700; i++) {
+      const a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, s = speed * (0.4 + Math.random() * 0.6);
+      const r = Math.sqrt(1 - u * u);
+      this.particles.push({ x, y, z, vx: Math.cos(a) * r * s, vy: Math.abs(u) * s + speed * 0.3, vz: Math.sin(a) * r * s, life: 0.7 + Math.random() * 0.8, age: 0, col: colour });
+    }
+  }
+
+  updateParticles(dt) {
+    if (!this.particles || !this.particles.length) return;
+    for (const p of this.particles) {
+      p.age += dt;
+      p.vy -= 9 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    }
+    this.particles = this.particles.filter(p => p.age < p.life && p.y > -2);
+  }
+
+  drawParticles() {
+    if (!this.particles || !this.particles.length) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of this.particles) {
+      const s = this.project([p.x, p.y, p.z]);
+      if (!s) continue;
+      const size = Math.max(1, Math.min(4, this.view.f / s.z * 0.12));
+      ctx.globalAlpha = Math.max(0, 1 - p.age / p.life);
+      ctx.fillStyle = p.col;
+      ctx.fillRect(s.x - size / 2, s.y - size / 2, size, size);
+    }
+    ctx.restore();
+  }
+
+  // Event overlays drawn on top of the city: the repair progress bar, lightning, party lasers.
+  drawEventOverlay() {
+    const e = this.event, ctx = this.ctx;
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(220,235,255,${(this.flash * 0.35).toFixed(3)})`;
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
+    if (!e) return;
+    if (e.kind === 'fix' && e.phase === 'work') {
+      const n = e.target, p = this.project([n.x, n.h + 4, n.z]);
+      if (p) {
+        const pct = Math.min(1, e.work / e.dur), w = 150;
+        ctx.fillStyle = rgba(this.th.css.bg, 0.85);
+        ctx.fillRect(p.x - w / 2, p.y - 30, w, 24);
+        ctx.strokeStyle = this.th.css.yellow;
+        ctx.strokeRect(p.x - w / 2, p.y - 30, w, 24);
+        ctx.fillStyle = rgba(this.th.css.yellow, 0.35);
+        ctx.fillRect(p.x - w / 2 + 2, p.y - 28, (w - 4) * pct, 20);
+        ctx.fillStyle = this.th.css.yellow;
+        ctx.font = '700 12px "Share Tech Mono", Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`PATCHING… ${Math.floor(pct * 100)}%`, p.x, p.y - 14);
+        ctx.textAlign = 'left';
+      }
+    }
+    if (e.kind === 'party') {
+      const tops = this.visibleNodes().sort((x, y) => x.rank - y.rank).slice(0, 3);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      tops.forEach((n, i) => {
+        for (let k = 0; k < 2; k++) {
+          const ang = e.t * (1.5 + i * 0.4) + k * Math.PI + i;
+          const sg = this.clipSeg([n.x, n.h, n.z], [n.x + Math.cos(ang) * 40, n.h + 50, n.z + Math.sin(ang) * 40]);
+          if (!sg) continue;
+          ctx.strokeStyle = rgba(this.th.palette[(i + k + Math.floor(e.t * 2)) % this.th.palette.length], 0.5);
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(sg[0].x, sg[0].y); ctx.lineTo(sg[1].x, sg[1].y); ctx.stroke();
+        }
+      });
+      ctx.restore();
+    }
+  }
+
+  // ------------------------------------------------------------ news ticker
+
+  pushNews(line) {
+    if (!this.ticker) return;
+    this.news = [line, ...(this.news || [])].slice(0, 14);
+    this.renderTicker();
+  }
+
+  renderTicker() {
+    if (!this.ticker) return;
+    const v = this.chatVars();
+    const local = [
+      `SKYLINE: ${v.top.toUpperCase()} STILL TALLEST WITH ${v.topLinks} LINKS`,
+      `${v.orphans} ORPHAN BUILDINGS SPOTTED, NO ONE LINKS TO THEM`,
+      `POPULATION: ${v.notes} BUILDINGS IN ${v.districts} DISTRICTS`,
+      `NEWEST CONSTRUCTION: ${v.newest.toUpperCase()}`
+    ];
+    const lines = [...(this.news || []), ...local, ...CITY_NEWS.slice().sort(() => Math.random() - 0.5).slice(0, 4)];
+    this.tickerText.textContent = lines.join('   ◆   ') + '   ◆   ';
+    // Scroll speed stays the same however long the text is.
+    this.tickerText.style.animationDuration = Math.max(30, this.tickerText.textContent.length * 0.18) + 's';
+  }
+
   // ------------------------------------------------------------ quick settings
 
   toggleSettings(open) {
@@ -1242,6 +1749,7 @@ class NeonCity {
       await this.host.saveSettings();
       if (apply === 'rebuild') this.host.rebuild();
       else if (apply === 'refresh') this.host.refresh();
+      else if (apply === 'events') this.scheduleEvent();
       else if (apply === 'cars') this.spawnCars(true);
       else if (apply === 'ambience') this.sfx.setAmbience(!!s.ambience);
     };
@@ -1282,8 +1790,11 @@ class NeonCity {
 
     section('CITY');
     select('Controls', 'controls', CONTROL_MODES);
+    select('Layout', 'layoutMode', LAYOUT_MODES, 'refresh');
     select('Districts from', 'districtMode', DISTRICT_MODES, 'refresh');
     toggle('Fill the city', 'fillCity');
+    select('Random events', 'events', EVENT_RATES, 'events');
+    toggle('Cyber extras', 'cyberExtras', 'rebuild');
 
     section('LOOK');
     const themes = {};
@@ -1658,7 +2169,9 @@ class NeonCity {
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
     // Panels sit under the top bar, which can wrap onto two rows in a narrow pane.
-    const below = this.topBar.offsetTop + this.topBar.offsetHeight + 14 + 'px';
+    const barBottom = this.topBar.offsetTop + this.topBar.offsetHeight;
+    if (this.ticker) this.ticker.style.top = barBottom + 6 + 'px';
+    const below = barBottom + (this.ticker ? 36 : 14) + 'px';
     this.districtList.style.top = below;
     this.settingsPanel.style.top = below;
     this.scanReadout.style.top = below;
@@ -1746,7 +2259,8 @@ class NeonCity {
     if (s.shards && this.shards.length < Math.min(3, this.nodes.length) && this.time >= this.shardRespawn) this.spawnShards();
     if (!s.shards && this.shards.length) this.shards = [];
 
-    const want = s.rain === 'heavy' ? 320 : s.rain === 'light' ? 130 : 0;
+    const storm = this.event && this.event.kind === 'storm';
+    const want = storm ? 420 : s.rain === 'heavy' ? 320 : s.rain === 'light' ? 130 : 0;
     while (this.drops.length < want) this.drops.push({ x: Math.random() * (this.W + 200) - 100, y: Math.random() * this.H, l: 10 + Math.random() * 18, v: 600 + Math.random() * 500 });
     if (this.drops.length > want) this.drops.length = want;
     for (const d of this.drops) {
@@ -1756,6 +2270,22 @@ class NeonCity {
 
     this.glitchT = Math.max(0, this.glitchT - dt);
     if (s.glitch && Math.random() < dt * 0.04) this.glitch(0.12);
+
+    this.flash = Math.max(0, (this.flash || 0) - dt * 3);
+    this.updateEvent(dt);
+    this.updateParticles(dt);
+    // New buildings rise out of the ground, throwing off a few sparks as they go.
+    for (const n of this.rising || []) {
+      n.buildT = Math.min(1, n.buildT + dt / 3);
+      if (Math.random() < dt * 12) this.burst(n.x + (Math.random() - 0.5) * n.w, n.h * this.riseOf(n), n.z + (Math.random() - 0.5) * n.w, 2, '#ffd36a', 3);
+    }
+    if (this.rising && this.rising.length) this.rising = this.rising.filter(n => n.buildT < 1);
+  }
+
+  // 0..1 height factor for a building still under construction (eased so it slows near the top).
+  riseOf(n) {
+    if (n.buildT == null || n.buildT >= 1) return 1;
+    return 1 - Math.pow(1 - n.buildT, 3);
   }
 
   moveAvatarTo(n, instant) {
@@ -1837,9 +2367,34 @@ class NeonCity {
 
     this.drawStreams();
     this.drawBeams(visible);
+    if (s.cyberExtras) this.drawSearchlights(visible);
+    this.drawParticles();
     this.drawLabels(visible);
     this.drawRain();
+    this.drawEventOverlay();
     if (this.glitchT > 0) this.drawGlitch();
+  }
+
+  // Two searchlight beams sweeping the sky from the tallest tower.
+  drawSearchlights(visible) {
+    const n = visible.reduce((m, x) => (!m || x.h > m.h ? x : m), null);
+    if (!n) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 2; k++) {
+      const ang = this.time * 0.35 + k * Math.PI;
+      const top = [n.x + Math.cos(ang) * 45, n.h + 70, n.z + Math.sin(ang) * 45];
+      const sg = this.clipSeg([n.x, n.h, n.z], top);
+      if (!sg) continue;
+      const g = ctx.createLinearGradient(sg[0].x, sg[0].y, sg[1].x, sg[1].y);
+      g.addColorStop(0, rgba(this.th.css.teal, 0.35));
+      g.addColorStop(1, rgba(this.th.css.teal, 0));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.moveTo(sg[0].x, sg[0].y); ctx.lineTo(sg[1].x, sg[1].y); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   drawPoly(world, fillStyle, stroke, width) {
@@ -1903,19 +2458,53 @@ class NeonCity {
     const isNear = this.selected && this.neighbours.get(this.selected.id).has(n.id);
     const isHot = this.highlight.has(n.id) || (this.matches && this.matches.has(n.id));
     const dim = !!(this.matches && !this.matches.has(n.id));
-    return {
+    const look = {
       col: isHot && !isSel ? th.hl : n.color,
       base: dim ? 0.06 : isSel ? 0.42 : isNear || isHover ? 0.28 : 0.17,
       edge: dim ? 0.18 : isSel ? 1 : isNear || isHover || isHot ? 0.85 : 0.55,
       dim
     };
+    // A freshly "fixed" building glows green for a few seconds.
+    if (n.fixedAt != null && this.time - n.fixedAt < 4) { look.col = th.css.green; look.base = 0.4; look.edge = 1; }
+    const e = this.event;
+    if (e) {
+      if (e.kind === 'blackout') { const l = this.eventLight(n); look.base *= l; look.edge *= l; }
+      else if (e.kind === 'party') { look.col = th.palette[(n.rank + Math.floor(e.t * 2.4)) % th.palette.length]; look.base = Math.max(look.base, 0.3); }
+      else if (e.kind === 'surge') {
+        const b = this.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+        const wave = e.t / e.dur * this.radius() * 1.3, d = Math.hypot(n.x - cx, n.z - cz);
+        if (Math.abs(d - wave) < 6) { look.col = '#ffffff'; look.base = 0.55; look.edge = 1; }
+      } else if (e.kind === 'fix' && e.target === n && e.phase === 'work') { look.col = Math.sin(this.time * 20) > 0 ? th.css.yellow : n.color; look.edge = 1; }
+    }
+    return look;
   }
 
   drawBuilding(n) {
-    const x0 = n.x - n.w / 2, x1 = n.x + n.w / 2, z0 = n.z - n.w / 2, z1 = n.z + n.w / 2, h = n.h;
+    const rise = this.riseOf(n);
+    const x0 = n.x - n.w / 2, x1 = n.x + n.w / 2, z0 = n.z - n.w / 2, z1 = n.z + n.w / 2, h = Math.max(0.2, n.h * rise);
     const eye = this.view.eye;
     const isSel = n === this.selected;
     const { col, base, edge, dim } = this.buildingLook(n);
+    if (rise < 1) {
+      // Under construction: a yellow scaffold frame shows the finished height.
+      const ctx = this.ctx, H = n.h, c = [[x0, x1], [z0, z1]];
+      ctx.strokeStyle = rgba(this.th.css.yellow, 0.55);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const x of c[0]) for (const z of c[1]) {
+        const sg = this.clipSeg([x, 0, z], [x, H, z]);
+        if (sg) { ctx.moveTo(sg[0].x, sg[0].y); ctx.lineTo(sg[1].x, sg[1].y); }
+      }
+      for (let y = FLOOR * 2; y <= H; y += FLOOR * 2) {
+        for (const [a, b] of [[[x0, y, z0], [x1, y, z0]], [[x1, y, z0], [x1, y, z1]], [[x1, y, z1], [x0, y, z1]], [[x0, y, z1], [x0, y, z0]]]) {
+          const sg = this.clipSeg(a, b);
+          if (sg) { ctx.moveTo(sg[0].x, sg[0].y); ctx.lineTo(sg[1].x, sg[1].y); }
+        }
+      }
+      ctx.stroke();
+      const beacon = this.project([n.x, H + 0.6, n.z]);
+      if (beacon && Math.sin(this.time * 8) > 0) { ctx.fillStyle = '#ffb000'; ctx.beginPath(); ctx.arc(beacon.x, beacon.y, 3, 0, Math.PI * 2); ctx.fill(); }
+    }
     const faces = [];
     if (eye.x > x1) faces.push([[x1, 0, z0], [x1, 0, z1], [x1, h, z1], [x1, h, z0]], 0.7);
     if (eye.x < x0) faces.push([[x0, 0, z1], [x0, 0, z0], [x0, h, z0], [x0, h, z1]], 0.7);
@@ -1981,6 +2570,31 @@ class NeonCity {
     if (eye.z < z0) faces.push([[x0, 0, z0], [x1, 0, z0], [x1, h, z0], [x0, h, z0]]);
     faces.forEach((f, i) => this.drawPoly(f, i ? fillB : fillA, edge, 1));
     if (eye.y > h) this.drawPoly([[x0, h, z0], [x1, h, z0], [x1, h, z1], [x0, h, z1]], rgba(th.bg0, 0.95), edge, 1);
+    // Holographic ad sign on top of the tallest skyline towers.
+    if (d.ad && this.host.settings().cyberExtras) {
+      const p = this.project([d.x, h + 2.2, d.z]);
+      if (p) {
+        const ctx = this.ctx, size = Math.max(8, Math.min(22, 1.3 * this.view.f / p.z));
+        // Skip signs that would sit behind the toolbar at the top of the screen.
+        if (size > 8.5 && p.y > 110) {
+          const seed = d.x * 0.7 + d.z * 0.3;
+          const on = Math.sin(this.time * 7 + seed * 11) > 0.96 ? 0.2 : 0.75 + 0.25 * Math.sin(this.time * 2 + seed);
+          ctx.font = `700 ${size.toFixed(1)}px Rajdhani, Bahnschrift, "Segoe UI", sans-serif`;
+          const w = ctx.measureText(d.ad).width + size;
+          ctx.globalAlpha = on;
+          ctx.fillStyle = rgba(th.css.bg, 0.6);
+          ctx.fillRect(p.x - w / 2, p.y - size, w, size * 1.4);
+          ctx.strokeStyle = d.adCol;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(p.x - w / 2, p.y - size, w, size * 1.4);
+          ctx.fillStyle = d.adCol;
+          ctx.textAlign = 'center';
+          ctx.fillText(d.ad, p.x, p.y + size * 0.05);
+          ctx.textAlign = 'left';
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
     // A few lit windows so the skyline feels inhabited.
     if (!d.inner && faces.length && h > 6) {
       const f = faces[faces.length - 1], ctx = this.ctx;
@@ -2335,19 +2949,26 @@ class NeonCity {
       return;
     }
 
-    // Small talk first: a greeting on its own, or a line that matches one of her chat topics.
-    const greeting = /^(h+i+|h+e+y+a*|hel+o+|yo+|sup|wa+s+u+p+|hiya|howdy|gm|good (morning|afternoon|evening)|o+i+)\b/;
-    const command = /^(find|search|look|open|go|fly|take|bring|navigate|jump|show|hide|which|where|scan|tour)\b/.test(t);
-    const talk = command ? null : SMALL_TALK.find(([re]) => re.test(t));
-    if (talk && (talk[0] !== SMALL_TALK[0][0] || t.split(' ').length <= 6)) {
-      reply(fill(pickOne(fun ? talk[1] : talk[2]), { name, notes: this.nodes.length, districts: this.blocks.length }));
-      if (talk[3]) talk[3](this);
+    // "fix <note>": she flies over and "repairs" it.
+    const fixQ = grab(/^(go\s+)?(fix|repair|patch|debug|service)\s+(?<q>.+)$/);
+    if (fixQ && !/^(something|stuff|it|the city|things|everything)$/.test(fixQ)) {
+      const n = await resolve(fixQ);
+      if (n) { this.startEvent('fix', n); return; }
+    }
+
+    // Chat topics (loose matching), unless the message is clearly a command.
+    if (!t) { this.quip('hello', null, true, true); return; }
+    const command = /^(find|search|look|open|go to|fly to|take me|bring me|navigate|jump|show|hide|which|where is|scan|tour)\b/.test(t);
+    const intent = command ? null : matchIntent(text);
+    if (intent) {
+      if (intent.quip) this.quip(intent.quip, null, true, true);
+      else if (intent.fun || intent.plain) reply(fill(pickOne(fun ? intent.fun || intent.plain : intent.plain || intent.fun), this.chatVars()));
+      if (intent.act) intent.act(this);
       return;
     }
-    if (!t || (greeting.test(t) && t.split(' ').length <= 4)) { this.quip('hello', null, true, true); return; }
     if (/\b(help|what can you do|commands|how do (i|you) use)\b/.test(t)) {
       reply(fun
-        ? 'I can find stuff, answer questions from your notes, and fly you around. Try "find kraken", "what is the ice knight", "take me to pipeline", "open fight script", "scan", "tour", "surprise me", "take a photo" or "hide bosses". Easy.'
+        ? 'I can find stuff, answer questions from your notes, fly you around and cause a little chaos. Try "find <words>", "what is <topic>", "take me to <note>", "open <note>", "fix <note>", "go wild", "party", "lights out", "joyride", "scan", "tour", "surprise me" or "flip a coin". Or just chat!'
         : 'Try: "find <words>", "what is <topic>", "take me to <note>", "open <note>", "scan", "tour", "random", "photo", "hide <district>", "show <district>", "how many notes".');
       return;
     }
@@ -2672,7 +3293,7 @@ class NeonVaultCityPlugin extends Plugin {
       let ft = cache.frontmatter && (cache.frontmatter.tags || cache.frontmatter.tag);
       if (typeof ft === 'string') ft = ft.split(/[,\s]+/);
       if (Array.isArray(ft)) for (const t of ft) if (t) tags.add(String(t).replace(/^#/, ''));
-      return { path: f.path, name: f.basename, tags: [...tags], mtime: f.stat.mtime };
+      return { path: f.path, name: f.basename, tags: [...tags], mtime: f.stat.mtime, ctime: f.stat.ctime };
     });
     return buildCityData(entries, mc.resolvedLinks, this.settings.districtMode);
   }
@@ -2945,6 +3566,21 @@ class NeonSettingTab extends PluginSettingTab {
       .setName('Fill the city')
       .setDesc('Add a background skyline of decorative towers around and between your notes, so even a small vault looks like a full megacity.')
       .addToggle(t => t.setValue(s.fillCity).onChange(async v => { s.fillCity = v; await save(false); }));
+    new Setting(containerEl)
+      .setName('Layout')
+      .setDesc('Grow: every building keeps its spot, older notes in the middle and new ones built on the edge, so the city expands outward. Skyline: the most-linked notes stand in the middle.')
+      .addDropdown(d => d.addOptions(LAYOUT_MODES).setValue(s.layoutMode).onChange(async v => { s.layoutMode = v; await save(false); this.plugin.refreshViews(); }));
+    new Setting(containerEl)
+      .setName('Random events')
+      .setDesc('How often Capri goes wild: "fixing" buildings, glitch storms, blackouts, dance parties, joyrides and power surges. Chaos is every minute or so.')
+      .addDropdown(d => d.addOptions(EVENT_RATES).setValue(s.events).onChange(async v => {
+        s.events = v; await save(false);
+        for (const view of this.plugin.views()) if (view.city) view.city.scheduleEvent();
+      }));
+    new Setting(containerEl)
+      .setName('Cyber extras')
+      .setDesc('Boot-up sequence, scrolling news ticker, holographic ads on the skyline and searchlights.')
+      .addToggle(t => t.setValue(s.cyberExtras).onChange(async v => { s.cyberExtras = v; await save(true); }));
 
     new Setting(containerEl).setName('Look').setHeading();
     const themes = {};

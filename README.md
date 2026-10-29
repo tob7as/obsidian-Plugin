@@ -26,15 +26,28 @@ Explore your Obsidian vault as a holographic 3D cyberpunk city. Every note is a 
 
 Spinning diamonds are **data shards** over older notes. Click one to collect it and rediscover the note.
 
+## A city that grows
+- With the **Grow** layout (default), every building keeps its spot. Older notes sit in the middle of each district and new ones are built on the outskirts, so the city expands outward as your vault grows.
+- New notes rise out of the ground as construction sites with scaffolding and sparks. A new folder gets a **NEW DISTRICT ZONED** alert.
+- **Fill the city** surrounds your notes with a background megacity skyline, so even a small vault looks packed.
+
+## Random events
+Every few minutes Capri goes a little wild (set the rate to Off, Rare, Normal or Chaos):
+- **Fix-it jobs:** she flies to a building and "repairs" it, with sparks and a progress bar. Results not guaranteed.
+- **Glitch storms**, **blackouts**, **dance parties** with fireworks, **joyrides** around the skyline and **power surges**.
+
+You can also ask for them: "go wild", "fix <note>", "party", "lights out", "joyride", "storm".
+
 ## Capri
-- Works offline with no setup: say "heyy", "help", "find <words>", "what is <topic>", "take me to <note>", "open <note>", "scan", "tour" or "surprise me".
+- Works offline with no setup. She chats ("heyy", "how are you", "tell me a joke", "fun fact", "rate my vault", "flip a coin"...) and copes with stretched letters and small typos ("how are youu", "hahah"). She also finds things: "find <words>", "what is <topic>", "take me to <note>", "open <note>", "scan", "tour" or "surprise me".
+- Say "shut up" to silence her voice and her own comments, and "talk to me" to bring her back.
 - Optional extras in Settings → Neon Vault City:
   - **Claude API key** for full AI conversation (billed to your key).
   - **Voice**: Windows voices (default), a Fish Audio voice (your own API key and voice ID), or Kokoro, a free voice that runs on your PC through a small local server.
 - To change her look, put a square PNG with a transparent background named `avatar.png` (standing) and, optionally, `avatar-perch.png` (crouching) in this folder.
 
 ## Settings
-Theme, rain, flying cars, billboards, glitch effects, district grouping (top folders, every folder or first tag), the filler skyline, labels, sounds and Capri's voice and personality are all in the in-city **⚙ SETTINGS** panel or under Settings → Neon Vault City.
+Theme, rain, flying cars, billboards, glitch effects, layout, district grouping (top folders, every folder or first tag), the filler skyline, random events, cyber extras (boot sequence, news ticker, holographic ads, searchlights), labels, sounds and Capri's voice and personality are all in the in-city **⚙ SETTINGS** panel or under Settings → Neon Vault City.
 
 API keys you enter are saved in `.obsidian/plugins/neon-vault-city/data.json`. Don't share that file.
 
