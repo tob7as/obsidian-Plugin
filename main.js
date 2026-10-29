@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS = {
   // Avatar
   avatarEnabled: true,
   avatarName: 'Capri',
+  chatty: true,
   personality: 'netrunner',
   voice: true,
   voiceEngine: 'system',
@@ -986,11 +987,19 @@ class NeonCity {
   }
 
   avatarName() { return this.host.settings().avatarName || DEFAULT_SETTINGS.avatarName; }
+
+  syncMuteButton() {
+    if (!this.muteBtn) return;
+    const on = !!this.host.settings().voice;
+    this.muteBtn.textContent = on ? 'VOICE ON' : 'VOICE OFF';
+    this.muteBtn.classList.toggle('nvc-on', on);
+  }
   quips() { return QUIPS[this.host.settings().personality] || QUIPS.netrunner; }
 
-  // Capri speaks a canned line (no API call).
-  quip(kind, vars, voiced) {
+  // Capri speaks a canned line (no API call). In quiet mode she only does so when spoken to (force).
+  quip(kind, vars, voiced, force) {
     if (!this.chatLog) return;
+    if (this.host.settings().chatty === false && !force) return;
     const line = fill(pickOne(this.quips()[kind]), vars);
     this.say('bot', this.avatarName() + ' › ' + line);
     if (voiced !== false) this.voice.speak(line);
@@ -1297,6 +1306,7 @@ class NeonCity {
     section('CAPRI');
     toggle('Show Capri', 'avatarEnabled', 'rebuild');
     toggle('Speak replies', 'voice');
+    toggle('Comments on her own', 'chatty');
     select('Voice', 'voiceEngine', { fish: 'Fish Audio (custom)', kokoro: 'Kokoro (local)', system: 'Windows' });
     select('Voice effect', 'voiceEffect', { hologram: 'Hologram shimmer', radio: 'Radio crackle', none: 'None' });
     select('Personality', 'personality', { netrunner: 'Capri (playful)', plain: 'Plain' });
@@ -2305,6 +2315,26 @@ class NeonCity {
       return hit ? hit.n : null;
     };
 
+    // Quiet mode: "shut up" silences her voice and her unprompted comments; "talk to me" undoes it.
+    const s = this.host.settings();
+    if (/\b(shut up|shush|hush|be quiet|quiet|stop talking|silence|zip it|mute|stfu)\b/.test(t)) {
+      s.chatty = false;
+      s.voice = false;
+      this.voice.stop();
+      this.syncMuteButton();
+      this.host.saveSettings();
+      this.say('bot', `${name} › ${fun ? 'Rude. Fine... going quiet. Say "talk to me" when you miss me.' : 'Okay, I will stay quiet. Say "talk to me" to turn me back on.'}`);
+      return;
+    }
+    if (/\b(talk to me|unmute|you can talk|speak again|come back|i miss you|talk again)\b/.test(t)) {
+      s.chatty = true;
+      s.voice = true;
+      this.syncMuteButton();
+      this.host.saveSettings();
+      reply(fun ? 'Ha! Knew you\'d miss me. I\'m back, choom.' : 'Voice and comments are back on.');
+      return;
+    }
+
     // Small talk first: a greeting on its own, or a line that matches one of her chat topics.
     const greeting = /^(h+i+|h+e+y+a*|hel+o+|yo+|sup|wa+s+u+p+|hiya|howdy|gm|good (morning|afternoon|evening)|o+i+)\b/;
     const command = /^(find|search|look|open|go|fly|take|bring|navigate|jump|show|hide|which|where|scan|tour)\b/.test(t);
@@ -2314,7 +2344,7 @@ class NeonCity {
       if (talk[3]) talk[3](this);
       return;
     }
-    if (!t || (greeting.test(t) && t.split(' ').length <= 4)) { this.quip('hello'); return; }
+    if (!t || (greeting.test(t) && t.split(' ').length <= 4)) { this.quip('hello', null, true, true); return; }
     if (/\b(help|what can you do|commands|how do (i|you) use)\b/.test(t)) {
       reply(fun
         ? 'I can find stuff, answer questions from your notes, and fly you around. Try "find kraken", "what is the ice knight", "take me to pipeline", "open fight script", "scan", "tour", "surprise me", "take a photo" or "hide bosses". Easy.'
@@ -2902,7 +2932,7 @@ class NeonSettingTab extends PluginSettingTab {
     };
     containerEl.empty();
 
-    containerEl.createEl('h3', { text: 'City' });
+    new Setting(containerEl).setName('City').setHeading();
     new Setting(containerEl)
       .setName('Controls')
       .setDesc('Map: drag slides the city around like a map and the angle stays fixed; right-drag turns it. Orbit: drag spins the camera around; right-drag slides.')
@@ -2916,7 +2946,7 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Add a background skyline of decorative towers around and between your notes, so even a small vault looks like a full megacity.')
       .addToggle(t => t.setValue(s.fillCity).onChange(async v => { s.fillCity = v; await save(false); }));
 
-    containerEl.createEl('h3', { text: 'Look' });
+    new Setting(containerEl).setName('Look').setHeading();
     const themes = {};
     for (const [k, t] of Object.entries(THEMES)) themes[k] = t.label;
     new Setting(containerEl)
@@ -2952,7 +2982,7 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Draw faint lines for all links, not only the selected building\'s.')
       .addToggle(t => t.setValue(s.showAllLinks).onChange(async v => { s.showAllLinks = v; await save(false); }));
 
-    containerEl.createEl('h3', { text: 'Fun' });
+    new Setting(containerEl).setName('Fun').setHeading();
     new Setting(containerEl)
       .setName('Data shards')
       .setDesc(`Spinning shards appear over older notes; click one to collect it and rediscover the note. Collected so far: ${s.shardsCollected || 0}.`)
@@ -2963,7 +2993,7 @@ class NeonSettingTab extends PluginSettingTab {
       .setDesc('Seconds at each building during the skyline tour (V).')
       .addSlider(sl => sl.setLimits(2, 15, 1).setValue(s.tourSeconds).setDynamicTooltip().onChange(async v => { s.tourSeconds = v; await save(false); }));
 
-    containerEl.createEl('h3', { text: 'Sound' });
+    new Setting(containerEl).setName('Sound').setHeading();
     new Setting(containerEl)
       .setName('Interface sounds')
       .setDesc('Synth blips for selecting, flying, shards and photos.')
@@ -2979,7 +3009,7 @@ class NeonSettingTab extends PluginSettingTab {
       .setName('Volume')
       .addSlider(sl => sl.setLimits(0, 1, 0.05).setValue(s.volume).setDynamicTooltip().onChange(async v => { s.volume = v; await save(false); }));
 
-    containerEl.createEl('h3', { text: 'Avatar' });
+    new Setting(containerEl).setName('Avatar').setHeading();
     new Setting(containerEl)
       .setName('Show the avatar')
       .addToggle(t => t.setValue(s.avatarEnabled).onChange(async v => { s.avatarEnabled = v; await save(true); }));
@@ -3005,7 +3035,7 @@ class NeonSettingTab extends PluginSettingTab {
       .addButton(b => b.setButtonText('Test').onClick(() => this.testVoice()));
 
     if (s.voiceEngine === 'fish') {
-      containerEl.createEl('h4', { text: 'Fish Audio voice' });
+      new Setting(containerEl).setName('Fish Audio voice').setHeading();
       new Setting(containerEl)
         .setName('Fish Audio API key')
         .setDesc('From fish.audio → API Keys. Stored in this vault\'s .obsidian folder, which OneDrive syncs.')
@@ -3033,7 +3063,7 @@ class NeonSettingTab extends PluginSettingTab {
     }
 
     if (s.voiceEngine === 'kokoro') {
-      containerEl.createEl('h4', { text: 'Kokoro voice' });
+      new Setting(containerEl).setName('Kokoro voice').setHeading();
       new Setting(containerEl)
         .setName('Voice')
         .setDesc('Blends mix two voices.')
@@ -3067,7 +3097,7 @@ class NeonSettingTab extends PluginSettingTab {
       return this.displayApi(containerEl, s, save);
     }
 
-    containerEl.createEl('h4', { text: 'Windows voice' });
+    new Setting(containerEl).setName('Windows voice').setHeading();
     const voices = speechVoices();
     const voiceOptions = { '': 'Automatic (an English voice)' };
     for (const v of voices) voiceOptions[v.name] = `${v.name} (${v.lang})`;
@@ -3089,7 +3119,7 @@ class NeonSettingTab extends PluginSettingTab {
   }
 
   displayApi(containerEl, s, save) {
-    containerEl.createEl('h4', { text: 'Brain (Claude API, optional)' });
+    new Setting(containerEl).setName('Brain (Claude API, optional)').setHeading();
     new Setting(containerEl)
       .setName('Claude API key')
       .setDesc('Needed for her to answer questions. Your messages and the notes she reads are sent to the Claude API and billed to this key. The key is stored in this vault\'s .obsidian folder, which OneDrive syncs.')
