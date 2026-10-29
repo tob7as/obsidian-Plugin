@@ -45,7 +45,7 @@ You can also ask for them: "go wild", "fix <note>", "party", "lights out", "joyr
 - Say "shut up" to silence her voice and her own comments, and "talk to me" to bring her back.
 - Optional extras in Settings → Neon Vault City:
   - **Claude API key** for full AI conversation (billed to your key).
-  - **Voice**: Windows voices (default), a Fish Audio voice (your own API key and voice ID), or Kokoro, a free voice that runs on your PC through a small local server.
+  - **Voice**: Windows voices (default) or a Fish Audio voice (your own API key and voice ID, see below).
 - To change her look, put a square PNG with a transparent background named `avatar.png` (standing) and, optionally, `avatar-perch.png` (crouching) in this folder.
 
 ## Give Capri a custom voice (Fish Audio)
@@ -80,15 +80,10 @@ Network use only happens when you turn on these optional features yourself:
 |---|---|---|---|
 | Claude API (Capri's full AI chat) | The AI model runs on Anthropic's servers | Your chat messages, and the text of notes Capri reads to answer you, to `api.anthropic.com` | Your own Claude API key; usage is billed to it |
 | Fish Audio voice | The voice is generated on Fish Audio's servers | The text of Capri's replies, to `api.fish.audio` | Your own Fish Audio API key |
-| Kokoro voice | The voice runs as a separate program on your own computer | Capri's replies, to that program at `127.0.0.1` (never leaves your computer) | None; Kokoro is installed separately |
 
-**Files outside your vault:** only the Kokoro voice uses them. With auto-start on, the plugin launches the Kokoro server using the Python and script paths you enter in settings, because the voice runs as its own program. Nothing outside your vault is read or written otherwise.
-
-Files the plugin writes inside your vault:
+The plugin never reads or writes anything outside your vault. Files it writes inside your vault:
 - `City Snapshots/` when you take a photo (P)
 - new notes, or text added to the end of existing notes, only when you ask Capri to add something while the Claude API is on
-
-The plugin is desktop only, because starting the Kokoro voice server needs desktop features.
 
 ## Licence
 MIT. See [LICENSE](LICENSE).

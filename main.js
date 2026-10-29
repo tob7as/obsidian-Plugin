@@ -50,14 +50,8 @@ const DEFAULT_SETTINGS = {
   personality: 'netrunner',
   voice: true,
   voiceEngine: 'system',
-  kokoroUrl: 'http://127.0.0.1:8880',
-  kokoroVoice: 'af_bella+af_sky',
-  kokoroSpeed: 1.1,
-  kokoroPitch: 1,
+  pitchLift: 1,
   voiceEffect: 'hologram',
-  kokoroAutoStart: true,
-  kokoroPython: '',
-  kokoroScript: '',
   fishKey: '',
   fishVoice: '',
   fishModel: 's2.1-pro-free',
@@ -341,28 +335,9 @@ function splitSentences(text) {
   return out.map(p => p.trim()).filter(Boolean);
 }
 
-const KOKORO_VOICES = {
-  'af_bella+af_sky': 'Capri blend: Bella + Sky (bright, playful)',
-  'af_bella+af_nicole': 'Bella + Nicole (sweet, breathy)',
-  'af_sky+af_nova': 'Sky + Nova (young, quick)',
-  af_bella: 'Bella (warm, expressive)',
-  af_sky: 'Sky (light, youthful)',
-  af_nicole: 'Nicole (soft, whispery)',
-  af_heart: 'Heart (clear, friendly)',
-  af_jessica: 'Jessica',
-  af_nova: 'Nova',
-  af_sarah: 'Sarah',
-  af_aoede: 'Aoede',
-  af_kore: 'Kore',
-  af_river: 'River',
-  af_alloy: 'Alloy',
-  bf_lily: 'Lily (British)',
-  bf_emma: 'Emma (British)'
-};
-
 /**
- * Speaks through Kokoro (a local open-source voice server) when it is chosen and reachable,
- * with an optional Web Audio effect, and falls back to the system's speech voices.
+ * Speaks through Fish Audio when it is chosen and reachable, with an optional Web Audio effect,
+ * and falls back to the system's speech voices.
  * hooks: {settings(), onState(on), fetchSpeech(text) -> ArrayBuffer, audio() -> {ac, out}, onNotice(msg)}
  */
 class Voice {
@@ -382,7 +357,7 @@ class Voice {
     if (!clean) return;
     this.stop();
     const token = ++this.token;
-    if ((s.voiceEngine === 'kokoro' || s.voiceEngine === 'fish') && this.hooks.fetchSpeech) {
+    if (s.voiceEngine === 'fish' && this.hooks.fetchSpeech) {
       // Speak sentence by sentence: the next one is generated while the current one plays,
       // so she starts talking as soon as the first sentence is ready.
       const chunks = splitSentences(clean);
@@ -407,7 +382,7 @@ class Voice {
         this.onState(false);
         if (!this.noticed && this.hooks.onNotice) {
           this.noticed = true;
-          this.hooks.onNotice((s.voiceEngine === 'fish' ? 'Fish Audio' : 'Kokoro') + ' voice unavailable (' + ((e && e.message) || e) + '). Using the Windows voice for now.');
+          this.hooks.onNotice('Fish Audio voice unavailable (' + ((e && e.message) || e) + '). Using the Windows voice for now.');
         }
       }
     }
@@ -421,7 +396,7 @@ class Voice {
     if (token !== this.token) return;
     const src = ac.createBufferSource();
     src.buffer = audio;
-    src.playbackRate.value = s.kokoroPitch || 1;
+    src.playbackRate.value = s.pitchLift || 1;
     const gain = ac.createGain();
     gain.gain.value = Math.min(1.6, 0.6 + s.volume * 1.5);
     src.connect(this.effect(ac, s.voiceEffect, gain));
@@ -1818,7 +1793,7 @@ class NeonCity {
     toggle('Show Capri', 'avatarEnabled', 'rebuild');
     toggle('Speak replies', 'voice');
     toggle('Comments on her own', 'chatty');
-    select('Voice', 'voiceEngine', { fish: 'Fish Audio (custom)', kokoro: 'Kokoro (local)', system: 'Windows' });
+    select('Voice', 'voiceEngine', { fish: 'Fish Audio (custom)', system: 'Windows' });
     select('Voice effect', 'voiceEffect', { hologram: 'Hologram shimmer', radio: 'Radio crackle', none: 'None' });
     select('Personality', 'personality', { netrunner: 'Capri (playful)', plain: 'Plain' });
     const test = el('button', 'nvc-secondary', body, 'TEST VOICE');
@@ -3256,12 +3231,17 @@ class NeonVaultCityPlugin extends Plugin {
 
   onunload() {
     clearTimeout(this.refreshTimer);
-    // Stop the voice server only if this plugin started it.
-    if (this.voiceProc && this.voiceProc.exitCode === null) this.voiceProc.kill();
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const saved = Object.assign({}, await this.loadData());
+    // Settings from features that were removed (the Kokoro voice, the Claude Code brain, the minimap)
+    // are dropped, so old local paths don't linger in data.json.
+    for (const key of Object.keys(saved)) {
+      if (/^(kokoro|claudeCode)/.test(key) || key === 'brain' || key === 'minimap') delete saved[key];
+    }
+    if (saved.voiceEngine === 'kokoro') saved.voiceEngine = 'system';
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
   }
 
   async saveSettings() {
@@ -3360,59 +3340,8 @@ class NeonVaultCityPlugin extends Plugin {
     return res.arrayBuffer;
   }
 
-  // ------------------------------------------------------------ Kokoro voice server
-
-  async voiceServerUp() {
-    try {
-      const res = await requestUrl({ url: this.settings.kokoroUrl.replace(/\/$/, '') + '/health', throw: false });
-      return res.status === 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Starts the local voice server (desktop only) and waits up to ~45 s for the model to load.
-  async ensureVoiceServer() {
-    if (await this.voiceServerUp()) return true;
-    const s = this.settings;
-    if (!s.kokoroAutoStart) throw new Error('the voice server is not running');
-    if (!s.kokoroPython || !s.kokoroScript) throw new Error('set the Kokoro server Python and script paths in settings');
-    if (!this.voiceStarting) {
-      this.voiceStarting = (async () => {
-        let spawn;
-        try { spawn = require('child_process').spawn; } catch (e) { throw new Error('auto-start needs Obsidian desktop'); }
-        if (!this.voiceProc || this.voiceProc.exitCode !== null) {
-          this.voiceProc = spawn(s.kokoroPython, ['-I', s.kokoroScript], { windowsHide: true, stdio: 'ignore' });
-          this.voiceProc.on('error', () => { this.voiceProc = null; });
-        }
-        for (let i = 0; i < 45; i++) {
-          await new Promise(r => setTimeout(r, 1000));
-          if (await this.voiceServerUp()) return true;
-          if (!this.voiceProc) break;
-        }
-        throw new Error('the voice server did not start; check the paths in settings');
-      })().finally(() => { this.voiceStarting = null; });
-    }
-    return this.voiceStarting;
-  }
-
   async fetchSpeech(text) {
-    const s = this.settings;
-    if (s.voiceEngine === 'fish') return this.fetchFishSpeech(text);
-    await this.ensureVoiceServer();
-    const res = await requestUrl({
-      url: s.kokoroUrl.replace(/\/$/, '') + '/speak',
-      method: 'POST',
-      contentType: 'application/json',
-      body: JSON.stringify({ text, voice: s.kokoroVoice, speed: s.kokoroSpeed }),
-      throw: false
-    });
-    if (res.status !== 200) {
-      let msg = 'HTTP ' + res.status;
-      try { msg = res.json.error || msg; } catch (e) { /* not JSON */ }
-      throw new Error(msg);
-    }
-    return res.arrayBuffer;
+    return this.fetchFishSpeech(text);
   }
 
   async callClaude(body) {
@@ -3665,8 +3594,8 @@ class NeonSettingTab extends PluginSettingTab {
       .addToggle(t => t.setValue(s.voice).onChange(async v => { s.voice = v; await save(true); }));
     new Setting(containerEl)
       .setName('Voice engine')
-      .setDesc('Fish Audio uses the voice you made on fish.audio (needs its API key). Kokoro is a free voice that runs on this PC. Windows uses the voices built into your computer.')
-      .addDropdown(d => d.addOptions({ fish: 'Fish Audio (your custom voice)', kokoro: 'Kokoro (local, free)', system: 'Windows voices' })
+      .setDesc('Fish Audio uses a voice you made or picked on fish.audio (needs its API key). Windows uses the voices built into your computer.')
+      .addDropdown(d => d.addOptions({ fish: 'Fish Audio (your custom voice)', system: 'Windows voices' })
         .setValue(s.voiceEngine).onChange(async v => { s.voiceEngine = v; await save(false); this.display(); }))
       .addButton(b => b.setButtonText('Test').onClick(() => this.testVoice()));
 
@@ -3690,46 +3619,11 @@ class NeonSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName('Pitch lift')
         .setDesc('Raises her pitch a little (also speeds her up slightly). 1 = as recorded.')
-        .addSlider(sl => sl.setLimits(0.9, 1.25, 0.01).setValue(s.kokoroPitch).setDynamicTooltip().onChange(async v => { s.kokoroPitch = v; await save(false); }));
+        .addSlider(sl => sl.setLimits(0.9, 1.25, 0.01).setValue(s.pitchLift).setDynamicTooltip().onChange(async v => { s.pitchLift = v; await save(false); }));
       new Setting(containerEl)
         .setName('Voice effect')
         .addDropdown(d => d.addOptions({ hologram: 'Hologram shimmer', radio: 'Radio crackle', none: 'None' })
           .setValue(s.voiceEffect).onChange(async v => { s.voiceEffect = v; await save(false); }));
-      return this.displayApi(containerEl, s, save);
-    }
-
-    if (s.voiceEngine === 'kokoro') {
-      new Setting(containerEl).setName('Kokoro voice').setHeading();
-      new Setting(containerEl)
-        .setName('Voice')
-        .setDesc('Blends mix two voices.')
-        .addDropdown(d => {
-          const opts = Object.assign({}, KOKORO_VOICES);
-          if (!opts[s.kokoroVoice]) opts[s.kokoroVoice] = s.kokoroVoice;
-          d.addOptions(opts).setValue(s.kokoroVoice).onChange(async v => { s.kokoroVoice = v; await save(false); });
-        });
-      new Setting(containerEl)
-        .setName('Speed')
-        .addSlider(sl => sl.setLimits(0.8, 1.5, 0.05).setValue(s.kokoroSpeed).setDynamicTooltip().onChange(async v => { s.kokoroSpeed = v; await save(false); }));
-      new Setting(containerEl)
-        .setName('Pitch lift')
-        .setDesc('Raises her pitch a little (also speeds her up slightly).')
-        .addSlider(sl => sl.setLimits(0.9, 1.25, 0.01).setValue(s.kokoroPitch).setDynamicTooltip().onChange(async v => { s.kokoroPitch = v; await save(false); }));
-      new Setting(containerEl)
-        .setName('Voice effect')
-        .addDropdown(d => d.addOptions({ hologram: 'Hologram shimmer', radio: 'Radio crackle', none: 'None' })
-          .setValue(s.voiceEffect).onChange(async v => { s.voiceEffect = v; await save(false); }));
-      const status = new Setting(containerEl).setName('Voice server').setDesc('Checking...');
-      this.plugin.voiceServerUp().then(up => status.setDesc(up ? 'Running.' : (s.kokoroAutoStart ? 'Not running. It starts by itself the first time she speaks.' : 'Not running. Start "Start Capri Voice.bat" in your CapriVoice folder.')));
-      new Setting(containerEl)
-        .setName('Start the voice server automatically')
-        .addToggle(t => t.setValue(s.kokoroAutoStart).onChange(async v => { s.kokoroAutoStart = v; await save(false); }));
-      new Setting(containerEl)
-        .setName('Server Python')
-        .addText(t => t.setValue(s.kokoroPython).onChange(async v => { s.kokoroPython = v.trim(); await save(false); }));
-      new Setting(containerEl)
-        .setName('Server script')
-        .addText(t => t.setValue(s.kokoroScript).onChange(async v => { s.kokoroScript = v.trim(); await save(false); }));
       return this.displayApi(containerEl, s, save);
     }
 
