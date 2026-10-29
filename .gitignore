@@ -1,0 +1,5 @@
+# Personal settings and API keys: never commit
+data.json
+# Your own avatar pictures
+avatar.png
+avatar-perch.png

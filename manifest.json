@@ -1,0 +1,9 @@
+{
+  "id": "neon-vault-city",
+  "name": "Neon Vault City",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Explore your vault as a holographic 3D city: every note is a building, taller means more linked. Walk or fly through it, and ask the avatar SHARD to find notes, fly you around and add things.",
+  "author": "Tobya",
+  "isDesktopOnly": false
+}
