@@ -1,6 +1,6 @@
 'use strict';
 /*
- * Neon Vault City: an Obsidian plugin that shows the vault as a holographic 3D city.
+ * Capri Neon City: an Obsidian plugin that shows the vault as a holographic 3D city.
  * Every note is a building; height grows with how linked the note is. Top-level folders
  * are districts. Capri, the avatar, talks through the Claude API and the system's speech
  * voices, and can search, read, fly the camera, highlight, and add notes.
@@ -94,19 +94,24 @@ const LOT = 4;          // world units between building centres
 const FLOOR = 2;        // world units per window row
 const DAY = 86400000;
 
-// Fallback avatar figure when avatar.png is missing (150 x 320 box).
+// Built-in Capri when avatar.png is missing (150 x 320 box): a hooded netrunner in a long coat,
+// with a cyan visor and neon trim.
 const AVATAR_POLYS = [
-  ['#a3164a', '58,58 30,10 64,40 70,2 82,36 108,8 96,46 138,30 104,62 146,74 98,76 120,104 86,84'],
-  ['#7d0f39', '50,62 18,40 44,70 6,86 52,82 36,110 66,88'],
-  ['#1b0b14', '66,66 90,64 94,92 78,104 64,92'],
-  ['#5be38b', '70,76 90,74 88,82 72,84'],
-  ['#a3164a', '60,118 108,116 104,176 92,200 66,200 58,170'],
-  ['#1b0b14', '64,124 82,120 76,168 62,170'],
-  ['#5be38b', '84,140 104,130 100,170 88,186'],
-  ['#1b0b14', '60,122 36,160 18,198 28,200 46,166 64,140'],
-  ['#1b0b14', '106,120 122,158 116,190 110,190 112,160 100,140'],
-  ['#5be38b', '66,200 80,200 74,262 70,300 62,300 64,250'],
-  ['#1b0b14', '80,200 94,200 100,250 98,302 90,302 88,252']
+  ['#2a1440', '64,96 86,96 92,114 58,114'],
+  ['#2a1440', '52,112 98,112 108,200 100,250 50,250 42,200'],
+  ['#ff4fa8', '71,114 79,114 83,244 67,244'],
+  ['#1b0b14', '52,116 38,160 34,206 44,208 50,166 60,134'],
+  ['#1b0b14', '98,116 112,160 116,206 106,208 100,166 90,134'],
+  ['#4ff0e0', '32,206 46,206 44,216 34,216'],
+  ['#4ff0e0', '104,206 118,206 116,216 106,216'],
+  ['#1b0b14', '58,250 72,250 71,304 58,304'],
+  ['#1b0b14', '78,250 92,250 92,304 79,304'],
+  ['#4ff0e0', '56,300 72,300 72,310 54,310'],
+  ['#4ff0e0', '78,300 94,300 96,310 78,310'],
+  ['#4ff0e0', '50,245 100,245 100,251 50,251'],
+  ['#1b0b14', '48,42 75,16 102,42 106,80 94,98 56,98 44,80'],
+  ['#ff4fa8', '48,42 75,16 102,42 98,48 75,26 52,48'],
+  ['#4ff0e0', '58,58 92,58 90,70 60,70']
 ].map(([fill, pts]) => [fill, pts.split(' ').map(p => p.split(',').map(Number))]);
 
 // Lines Capri says on her own, without the API. {n} is a note name, {o}/{f} are counts.
@@ -516,7 +521,7 @@ const INTENTS = [
     plain: ['I am a guide built into this plugin.'] },
   { id: 'creator', ex: ['who made you', 'who created you', 'who built you', 'who is your creator', 'who programmed you'],
     fun: ['A very talented runner built this whole city. I just moved in and started bossing it around.', 'Someone with great taste. Obviously.'],
-    plain: ['I was built as part of the Neon Vault City plugin.'] },
+    plain: ['I was built as part of the Capri Neon City plugin.'] },
   { id: 'age', ex: ['how old are you', 'whats your age', 'when is your birthday', 'when were you born'],
     fun: ['Old enough to know your folders are chaos. Young enough not to care.', 'Every time you reload, I\'m born again. So... a few minutes?'],
     plain: ['I started when the plugin did.'] },
@@ -1027,7 +1032,7 @@ class NeonCity {
   buildHud() {
     const top = el('div', 'nvc-top nvc-hud', this.wrap);
     this.topBar = top;
-    el('div', 'nvc-title', top, 'NEON//VAULT');
+    el('div', 'nvc-title', top, 'CAPRI//NEON');
     const notes = el('div', 'nvc-stat teal', top);
     this.hudNotes = el('b', null, notes, '0');
     el('span', null, notes, 'NOTES');
@@ -1334,7 +1339,7 @@ class NeonCity {
     if (!this.host.settings().cyberExtras) return;
     const v = this.chatVars();
     const lines = [
-      'NEON//VAULT OS v2.0',
+      'CAPRI//NEON OS v2.0',
       '> mounting vault ................ OK',
       `> indexing ${v.notes} buildings ........ OK`,
       `> zoning ${v.districts} districts ........... OK`,
@@ -3158,7 +3163,7 @@ class CityItemView extends ItemView {
     this.city = null;
   }
   getViewType() { return VIEW_TYPE; }
-  getDisplayText() { return 'Neon Vault City'; }
+  getDisplayText() { return 'Capri Neon City'; }
   getIcon() { return 'building'; }
 
   async onOpen() {
@@ -3199,7 +3204,7 @@ class NeonVaultCityPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     this.registerView(VIEW_TYPE, leaf => new CityItemView(leaf, this));
-    this.addRibbonIcon('building', 'Open Neon Vault City', () => this.activateView());
+    this.addRibbonIcon('building', 'Open Capri Neon City', () => this.activateView());
     this.addCommand({ id: 'open-city', name: 'Open city', callback: () => this.activateView() });
     this.addCommand({ id: 'refresh-city', name: 'Refresh city', callback: () => this.refreshViews() });
     const cityCommand = (id, name, run) => this.addCommand({
@@ -3306,7 +3311,7 @@ class NeonVaultCityPlugin extends Plugin {
         if (!this.app.vault.getAbstractFileByPath(SNAPSHOT_FOLDER)) await this.app.vault.createFolder(SNAPSHOT_FOLDER);
         const d = new Date(), pad = x => String(x).padStart(2, '0');
         const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-        const path = normalizePath(`${SNAPSHOT_FOLDER}/Neon Vault ${stamp}.png`);
+        const path = normalizePath(`${SNAPSHOT_FOLDER}/Capri Neon City ${stamp}.png`);
         await this.app.vault.createBinary(path, buf);
         return path;
       },
@@ -3361,7 +3366,7 @@ class NeonVaultCityPlugin extends Plugin {
     try { json = res.json; } catch (e) { /* not JSON */ }
     if (res.status === 200 && json) return json;
     const detail = json && json.error && json.error.message ? json.error.message : `HTTP ${res.status}`;
-    if (res.status === 401) throw new Error('The API key was rejected. Check it in Settings → Neon Vault City.');
+    if (res.status === 401) throw new Error('The API key was rejected. Check it in Settings → Capri Neon City.');
     if (res.status === 429) throw new Error('Rate limited by the API. Wait a moment and try again.');
     throw new Error('API error: ' + detail);
   }
