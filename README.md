@@ -2,6 +2,8 @@
 
 Explore your Obsidian vault as a holographic 3D cyberpunk city. Every note is a building, taller buildings have more links, and folders (or tags) become districts. Capri, your holographic guide, chats, finds notes, answers questions from them and flies you around.
 
+![Neon Vault City: a vault of 46 notes drawn as a neon 3D city, with district labels, the news ticker, Capri's chat and the quick settings panel](./images/screenshot.webp)
+
 ## Install
 1. Create a `neon-vault-city` folder in your vault's `.obsidian/plugins/` folder and put `main.js`, `manifest.json` and `styles.css` in it (from this repository or its latest release).
 2. In Obsidian: Settings → Community plugins → turn off Restricted mode if needed → click the refresh icon → turn on **Neon Vault City**.
