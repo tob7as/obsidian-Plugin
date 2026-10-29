@@ -48,6 +48,22 @@ You can also ask for them: "go wild", "fix <note>", "party", "lights out", "joyr
   - **Voice**: Windows voices (default), a Fish Audio voice (your own API key and voice ID), or Kokoro, a free voice that runs on your PC through a small local server.
 - To change her look, put a square PNG with a transparent background named `avatar.png` (standing) and, optionally, `avatar-perch.png` (crouching) in this folder.
 
+## Give Capri a custom voice (Fish Audio)
+Fish Audio lets you make or pick a voice and use it through its API.
+
+1. **Sign up** at [fish.audio](https://fish.audio/app/).
+2. **Get a voice.** Either:
+   - **Design a new one:** create a voice from a written description, for example *"young woman, bright and playful, quick and expressive, a little mischievous"*. Try a few versions and keep your favourite.
+   - **Pick one from the voice library**, choosing voices whose creators allow use.
+   
+   Only use voices you have the right to use. Don't clone a real person's voice, or a game or film character's, without their permission.
+3. **Copy the voice ID.** Open the voice's page; the ID is the long code in the address, after `/m/`. For example, in `fish.audio/app/m/0123abcd…/` the ID is `0123abcd…`.
+4. **Create an API key** in the API keys section of your Fish Audio account. Keep it secret.
+5. **In Obsidian:** Settings → Neon Vault City → Avatar → set **Voice engine** to **Fish Audio**, paste your **API key** and **Voice ID**, then press **Test**.
+6. **Tune it** with **Pitch lift** and **Voice effect** (hologram shimmer, radio crackle or none).
+
+If it still sounds like the Windows voice, look in Capri's chat for a grey "Fish Audio voice unavailable (…)" line: the part in brackets says why (for example a rejected key or no credit left). Fish Audio has a free model with limited use; check their pricing for current limits.
+
 ## Settings
 Theme, rain, flying cars, billboards, glitch effects, layout, district grouping (top folders, every folder or first tag), the filler skyline, random events, cyber extras (boot sequence, news ticker, holographic ads, searchlights), labels, sounds and Capri's voice and personality are all in the in-city **⚙ SETTINGS** panel or under Settings → Neon Vault City.
 
