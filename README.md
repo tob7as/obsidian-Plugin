@@ -41,9 +41,6 @@ Every few minutes Capri goes a little wild (set the rate to Off, Rare, Normal or
 You can also ask for them: "go wild", "fix <note>", "party", "lights out", "joyride", "storm".
 
 ## Capri
-
-![Capri, the built-in holographic guide: a hooded netrunner with a glowing cyan visor and neon trim](./images/capri.svg)
-
 - Works offline with no setup. She chats ("heyy", "how are you", "tell me a joke", "fun fact", "rate my vault", "flip a coin"...) and copes with stretched letters and small typos ("how are youu", "hahah"). She also finds things: "find <words>", "what is <topic>", "take me to <note>", "open <note>", "scan", "tour" or "surprise me".
 - Say "shut up" to silence her voice and her own comments, and "talk to me" to bring her back.
 - Optional extras in Settings → Capri Neon City:
